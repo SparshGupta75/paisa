@@ -1,20 +1,19 @@
-import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Card, SectionHeader } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { Screen } from '@/components/ui/Screen';
 import { useTheme } from '@/theme/ThemeProvider';
 
 export default function HomeScreen() {
-  const { colors, typography, spacing } = useTheme();
+  const { colors, typography, spacing, radius } = useTheme();
 
   return (
     <Screen>
-      <Card style={styles.welcomeCard}>
-        <View style={[styles.mark, { backgroundColor: colors.accentSoft }]}>
-          <Icon name="indianrupeesign.circle.fill" size={30} color={colors.accent} />
+      <Card style={{ padding: spacing.xl, gap: spacing.sm, alignItems: 'flex-start' }}>
+        <View style={[styles.mark, { backgroundColor: colors.accentSoft, borderRadius: radius.md }]}>
+          <Icon name="wallet" size={28} color={colors.accent} />
         </View>
         <Text style={[typography.title2, { color: colors.label }]}>Welcome to Paisa</Text>
         <Text style={[typography.subhead, { color: colors.secondaryLabel, marginTop: spacing.xs }]}>
@@ -26,21 +25,21 @@ export default function HomeScreen() {
         <SectionHeader>How it works</SectionHeader>
         <Card>
           <Pillar
-            icon="lock.shield.fill"
+            icon="lock"
             title="Private by default"
-            detail="Data is stored in SQLite on this device. No account, no cloud."
+            detail="Your data stays on this iPhone. No account, no cloud."
           />
-          <View style={[styles.divider, { backgroundColor: colors.separator }]} />
+          <Divider />
           <Pillar
-            icon="bolt.fill"
-            title="Fast to record"
-            detail="Two taps to log an expense. No forms to wade through."
+            icon="bolt"
+            title="Works offline"
+            detail="Add Paisa to your Home Screen and it opens without a connection."
           />
-          <View style={[styles.divider, { backgroundColor: colors.separator }]} />
+          <Divider />
           <Pillar
-            icon="indianrupeesign"
+            icon="cash"
             title="Built for India"
-            detail="Rupee-first formatting, Indian digit grouping, UPI-ready."
+            detail="Rupee-first formatting and Indian digit grouping. UPI statement import is on the way."
           />
         </Card>
       </View>
@@ -54,15 +53,13 @@ export default function HomeScreen() {
   );
 }
 
-function Pillar({
-  icon,
-  title,
-  detail,
-}: {
-  icon: ComponentProps<typeof Icon>['name'];
-  title: string;
-  detail: string;
-}) {
+function Divider() {
+  const { colors, spacing } = useTheme();
+  // Inset past the icon well, like an iOS grouped list.
+  return <View style={[styles.divider, { backgroundColor: colors.separator, marginLeft: spacing.lg + 30 + spacing.md }]} />;
+}
+
+function Pillar({ icon, title, detail }: { icon: IconName; title: string; detail: string }) {
   const { colors, typography, spacing, radius } = useTheme();
 
   return (
@@ -70,7 +67,7 @@ function Pillar({
       <View style={[styles.pillarIcon, { backgroundColor: colors.fill, borderRadius: radius.sm }]}>
         <Icon name={icon} size={17} color={colors.label} />
       </View>
-      <View style={{ flex: 1, gap: 2 }}>
+      <View style={{ flex: 1, gap: spacing.xxs }}>
         <Text style={[typography.subhead, { color: colors.label, fontWeight: '600' }]}>{title}</Text>
         <Text style={[typography.footnote, { color: colors.secondaryLabel }]}>{detail}</Text>
       </View>
@@ -79,9 +76,8 @@ function Pillar({
 }
 
 const styles = StyleSheet.create({
-  welcomeCard: { padding: 20, gap: 10, alignItems: 'flex-start' },
-  mark: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  mark: { width: 52, height: 52, alignItems: 'center', justifyContent: 'center' },
   pillar: { flexDirection: 'row', alignItems: 'flex-start' },
   pillarIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  divider: { height: StyleSheet.hairlineWidth, marginLeft: 58 },
+  divider: { height: StyleSheet.hairlineWidth },
 });

@@ -46,3 +46,6 @@ coverage/
 
 # graphify output
 /graphify-out/
+# Playwright
+/test-results/
+/playwright-report/

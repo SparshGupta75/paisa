@@ -20,8 +20,7 @@
 
 - [ ] Tests committed before the implementation (TDD)
 - [ ] `npm run verify` passes (unit + integration)
-- [ ] E2E (Playwright) passes — from PR 2 onwards
-- [ ] `npx expo export --platform web` succeeds (`ios` until PR 2)
+- [ ] `npm run build:web && npm run e2e` passes
 - [ ] Tested in the installed home-screen app on iPhone (or Simulator Safari)
 - [ ] Light mode
 - [ ] Dark mode

@@ -55,7 +55,10 @@ npm run verify        # typecheck + lint + test
 npx expo export --platform web --output-dir /tmp/paisa-web   # bundle smoke test
 ```
 
-(Until PR 2 adds the web export and E2E jobs, CI still exports iOS.)
+```bash
+npm run build:web     # export + service worker + _headers
+npm run e2e           # Playwright WebKit against dist/ (first run: npx playwright install webkit)
+```
 
 ## 4. Commit
 

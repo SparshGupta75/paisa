@@ -29,7 +29,8 @@ export default function SettingsScreen() {
           />
         </Card>
         <SectionFooter>
-          Encryption and Face ID lock arrive with the security milestone.
+          Removing Paisa from your Home Screen deletes its data. Backup and export
+          arrive soon; an optional Face ID lock comes later.
         </SectionFooter>
       </Section>
 
@@ -37,7 +38,7 @@ export default function SettingsScreen() {
         <SectionHeader>About</SectionHeader>
         <Card>
           <Row title="Version" value={version} />
-          <Row title="Built for" value="iPhone" last />
+          <Row title="Runs as" value="Home Screen web app" last />
         </Card>
       </Section>
     </Screen>

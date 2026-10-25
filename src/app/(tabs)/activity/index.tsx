@@ -5,7 +5,7 @@ export default function ActivityScreen() {
   return (
     <Screen>
       <EmptyState
-        icon="list.bullet"
+        icon="list"
         title="No transactions"
         message="Every expense you record shows up here, grouped by day."
       />

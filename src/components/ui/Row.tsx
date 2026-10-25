@@ -74,7 +74,7 @@ export function Row({
 
       {trailing}
 
-      {chevron ? <Icon name="chevron.right" size={13} color={colors.tertiaryLabel} /> : null}
+      {chevron ? <Icon name="chevron-right" size={13} color={colors.tertiaryLabel} /> : null}
     </>
   );
 

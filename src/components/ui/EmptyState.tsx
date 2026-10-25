@@ -1,14 +1,11 @@
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { SymbolView } from 'expo-symbols';
 
 import { useTheme } from '@/theme/ThemeProvider';
-import { Icon } from './Icon';
-
-type SymbolName = ComponentProps<typeof SymbolView>['name'];
+import { Icon, type IconName } from './Icon';
 
 export interface EmptyStateProps {
-  icon: SymbolName;
+  icon: IconName;
   title: string;
   message: string;
   children?: ReactNode;
