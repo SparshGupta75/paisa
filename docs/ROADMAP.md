@@ -15,29 +15,27 @@ Status legend: `[x]` merged · `[~]` in review · `[ ]` not started.
 - [x] Money module with integer-paise invariant + tests
 - [x] CI (typecheck, lint, test, bundle), PR template, docs
 
-## PR 2 — Web platform (PWA shell)
+## PR 2 — Web platform (PWA shell) 🚧
 
 Moves the target from Expo Go to an installable web app. See
 [ARCHITECTURE.md#platform-decision](ARCHITECTURE.md#platform-decision). This is
 partly a spike: if an exit criterion fails, stop and report before PR 3.
 
-- Metro bundles `.wasm`; dev server sends COOP/COEP headers (`metro.config.js`)
-- Static export (`npx expo export --platform web`) deployed to a host that sets
-  custom headers (EAS Hosting or Cloudflare Pages — not GitHub Pages), on a
-  permanent custom domain, with a preview environment for review before promotion
-- Security headers and CSP from SECURITY.md on every path
-- Web app manifest, `apple-touch-icon`, standalone display, theme colours
-- Service worker that precaches the app shell so a cold start works offline
-- `navigator.storage.persist()` requested on first launch
-- Web icon set to replace SF Symbols (not licensed for the web)
-- Tab bar that works on web (verify `NativeTabs`; fall back to JS `Tabs`)
-- Playwright (WebKit, iPhone viewport) E2E smoke test in CI; CI exports web
-  instead of iOS
-- Fix copy that overclaims on Home ("Two taps", "UPI-ready") and hardcoded
-  spacing in `src/app/(tabs)/(home)/index.tsx`; replace the Settings footer
-  about "encryption and Face ID" with the app-lock and backup reality
+- [~] Metro bundles `.wasm`; dev server sends the production headers (`metro.config.js`)
+- [~] Security headers and CSP on every path, from one module (`scripts/web/headers.js`)
+- [~] Web app manifest, `apple-touch-icon`, standalone display, theme colours
+- [~] Generated service worker that precaches the whole export; offline cold start
+- [~] `navigator.storage.persist()` requested on launch
+- [~] Ionicons replace SF Symbols behind a semantic `<Icon>` API
+- [~] JS bottom tab bar (`NativeTabs` is a top pill on the web); each tab has its own URL
+- [~] Playwright (WebKit, iPhone 15) E2E in CI; CI exports web instead of iOS
+- [~] Home and Settings copy fixed; Home spacing uses tokens
+- [ ] **Deploy** to Cloudflare Pages or Netlify (both honour `_headers`) on a
+  permanent custom domain with a preview environment. Needs the owner's host
+  account and domain; not done in code.
 
-**Exit criteria (on a real iPhone, installed to the home screen):**
+**Exit criteria (on a real iPhone, installed to the home screen).** Items 1 and
+3 pass in Playwright WebKit; all four still need the phone:
 1. `crossOriginIsolated === true` and `SharedArrayBuffer` exists — online, and
    again on an offline cold start served from the service-worker cache.
 2. A row written to SQLite survives closing the app and a phone restart.

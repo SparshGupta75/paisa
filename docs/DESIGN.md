@@ -26,8 +26,8 @@ Web-specific musts:
 | --- | --- |
 | Type | System font stack (`-apple-system`, which renders SF Pro in Safari) via `typography` in `src/theme/tokens.ts`. Never add a custom font. |
 | Navigation | `expo-router` `Stack` per tab and one bottom tab bar, styled like iOS. One shared tab bar component — never a second, ad-hoc one. |
-| Titles | Large titles on top-level screens. Inline titles on pushed detail screens. |
-| Icons | The open-licence icon set chosen in PR 2, via `<Icon>`. SF Symbols cannot be used on the web (Apple licence). Never emoji for chrome. |
+| Titles | Large titles on top-level screens. Inline titles on pushed detail screens. (On the web the stack header renders a standard-size title; a large-title header component is future work.) |
+| Icons | Ionicons via `<Icon name>` with semantic names (`home`, `lock`, …); add a name to `GLYPHS` in `Icon.tsx` rather than using a glyph directly. SF Symbols cannot be used on the web (Apple licence). Never emoji for chrome. |
 | Tap targets | Minimum 44×44 pt (`layout.minTouchTarget`). |
 | Text size | Never set `allowFontScaling={false}`. Layouts must survive 200% text zoom (Safari tab, **aA → 200%**; the home-screen app has no zoom control). |
 | Dark mode | Every screen ships in both appearances. A light-only screen is a bug. |
@@ -75,7 +75,7 @@ Green means "money in", red means "money out". Do not use them for branding.
 | `SectionHeader` / `SectionFooter` | `components/ui/Card.tsx` | Uppercase header, muted footer |
 | `Row` | `components/ui/Row.tsx` | Grouped list row, optional chevron/value |
 | `EmptyState` | `components/ui/EmptyState.tsx` | Icon well + title + explanation |
-| `Icon` | `components/ui/Icon.tsx` | Icon wrapper; currently SF Symbols with a dot fallback — swapped for the web icon set in PR 2 |
+| `Icon` | `components/ui/Icon.tsx` | Semantic icon names mapped to Ionicons; decorative (hidden from assistive tech) |
 | `TabStack` | `components/nav/TabStack.tsx` | Shared stack header options |
 | `ConfirmSheet` | *(PR 3)* | The one iOS-style action sheet for confirmations and destructive actions |
 
@@ -133,6 +133,6 @@ the same look, it is a component.
 3. Empty state and populated state for the screen.
 4. 200% text zoom (Safari tab, **aA → 200%**; the home-screen app has no zoom control).
 5. Rotate to landscape: assume a manifest orientation lock is not honoured on
-   iOS (verify in PR 2), so the layout must stay usable.
+   iOS (still unverified on a device), so the layout must stay usable.
 6. Repeated taps do not double-insert data.
 7. Keyboard open: the focused field and the save button stay visible.

@@ -12,10 +12,14 @@ import {
 } from 'react-native';
 
 import { DATABASE_NAME, migrate } from '@/db/migrate';
+import { UpdateBanner } from '@/components/ui/UpdateBanner';
+import { usePwaStartup } from '@/hooks/usePwaStartup';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { palettes, radius, spacing, typography } from '@/theme/tokens';
 
 export default function RootLayout() {
+  const { updateReady, update } = usePwaStartup();
+
   return (
     <ThemeProvider>
       {/* Suspense + useSuspense keeps every screen from mounting until the
@@ -26,6 +30,7 @@ export default function RootLayout() {
           <RootNavigator />
         </SQLiteProvider>
       </Suspense>
+      {updateReady ? <UpdateBanner onUpdate={update} /> : null}
       <StatusBar style="auto" />
     </ThemeProvider>
   );

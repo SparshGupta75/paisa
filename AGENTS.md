@@ -45,8 +45,9 @@ React Native API:
 ```bash
 npx expo install <package>   # ALWAYS, instead of npm install for Expo modules
 npm run verify               # typecheck + lint + test — run before declaring done
-npx expo start --web         # dev server; open in Safari (from PR 2; Expo Go before that)
-npx expo export --platform web --output-dir /tmp/paisa-web   # bundle smoke test (fails until PR 2 adds metro.config.js)
+npx expo start --web         # dev server; open in Safari
+npm run build:web            # export + service worker + _headers into dist/
+npm run e2e                  # Playwright WebKit against dist/
 ```
 
 Run `npm run verify` before claiming any task is complete. If you could not test
@@ -76,8 +77,7 @@ rather than implying visual verification.
 12. A PR is not done until `test-reviewer`, `security-reviewer`, and `pen-tester`
     (`.claude/agents/`) have reported and every P0/P1 is fixed.
 13. Never use React Native `Alert` (no-op on web), SF Symbols, haptics, or any
-    third-party origin (CDN, web font, analytics). Existing SF Symbol uses
-    (`Icon.tsx`, the tab layout) are replaced in PR 2.
+    third-party origin (CDN, web font, analytics). Icons go through `<Icon name>`.
 
 ## Token discipline
 
