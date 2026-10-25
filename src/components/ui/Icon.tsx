@@ -19,7 +19,16 @@ export interface IconProps {
  */
 export function Icon({ name, size = 22, color }: IconProps) {
   if (Platform.OS !== 'ios') {
-    return <Text style={{ fontSize: size * 0.8, color, lineHeight: size }}>•</Text>;
+    // Decorative fallback: hide from assistive tech so it is not read as "•".
+    return (
+      <Text
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={{ fontSize: size * 0.8, color, lineHeight: size }}
+      >
+        •
+      </Text>
+    );
   }
 
   return <SymbolView name={name} size={size} tintColor={color} resizeMode="scaleAspectFit" />;

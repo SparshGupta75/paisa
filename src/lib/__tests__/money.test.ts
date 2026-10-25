@@ -1,4 +1,4 @@
-import { formatINR, formatINRCompact, parseAmountToPaise } from '../money';
+import { INVALID_AMOUNT, formatINR, formatINRCompact, parseAmountToPaise } from '../money';
 
 describe('parseAmountToPaise', () => {
   it('parses plain rupee input into paise', () => {
@@ -12,11 +12,18 @@ describe('parseAmountToPaise', () => {
     expect(parseAmountToPaise(' 42 ')).toBe(4200);
     expect(parseAmountToPaise('.5')).toBe(50);
     expect(parseAmountToPaise('99.')).toBe(9900);
+    expect(parseAmountToPaise('1,23,456')).toBe(12345600);
+    expect(parseAmountToPaise('12,345,678')).toBe(1234567800);
   });
 
-  it('rounds sub-paise precision instead of truncating', () => {
-    expect(parseAmountToPaise('1234.567')).toBe(123457);
+  it('rounds half-up on the third decimal without float error', () => {
+    // Regression: Math.round(1.005 * 100) === 100, not 101.
+    expect(parseAmountToPaise('1.005')).toBe(101);
+    expect(parseAmountToPaise('1.015')).toBe(102);
+    expect(parseAmountToPaise('2.675')).toBe(268);
+    expect(parseAmountToPaise('0.004')).toBe(0);
     expect(parseAmountToPaise('0.005')).toBe(1);
+    expect(parseAmountToPaise('1234.567')).toBe(123457);
   });
 
   it('handles Devanagari digits', () => {
@@ -35,13 +42,21 @@ describe('parseAmountToPaise', () => {
     expect(parseAmountToPaise('12-3')).toBeNull();
   });
 
+  it('rejects commas that do not follow a valid grouping', () => {
+    // "1,2,3" must not silently become 123.
+    expect(parseAmountToPaise('1,2,3')).toBeNull();
+    expect(parseAmountToPaise('1234,567')).toBeNull();
+    expect(parseAmountToPaise(',123')).toBeNull();
+    expect(parseAmountToPaise('123,')).toBeNull();
+  });
+
   it('rejects amounts above the sanity ceiling', () => {
     expect(parseAmountToPaise('900000001')).toBeNull();
     expect(parseAmountToPaise('900000000')).toBe(90_000_000_000);
+    expect(parseAmountToPaise('999999999999999')).toBeNull();
   });
 
   it('is not fooled by non-string input at runtime', () => {
-    // Guards against values arriving from a text input proxy or JSON.
     expect(parseAmountToPaise(undefined as unknown as string)).toBeNull();
     expect(parseAmountToPaise(1234 as unknown as string)).toBeNull();
   });
@@ -68,6 +83,11 @@ describe('formatINR', () => {
     expect(formatINR(-123450)).toBe('-₹1,234.50');
   });
 
+  it('never renders a negative zero', () => {
+    expect(formatINR(-0)).toBe('₹0');
+    expect(formatINR(-0.4)).toBe('₹0');
+  });
+
   it('can force decimals or a signed prefix', () => {
     expect(formatINR(1234000, { forceDecimals: true })).toBe('₹12,340.00');
     expect(formatINR(50000, { signed: true })).toBe('+₹500');
@@ -78,9 +98,10 @@ describe('formatINR', () => {
     expect(formatINR(123450, { currencySymbol: false })).toBe('1,234.50');
   });
 
-  it('degrades safely on non-finite input', () => {
-    expect(formatINR(NaN)).toBe('₹0');
-    expect(formatINR(Infinity)).toBe('₹0');
+  it('shows a placeholder for non-finite input instead of a fake zero', () => {
+    expect(formatINR(NaN)).toBe(INVALID_AMOUNT);
+    expect(formatINR(Infinity)).toBe(INVALID_AMOUNT);
+    expect(formatINR(-Infinity)).toBe(INVALID_AMOUNT);
   });
 });
 
@@ -89,10 +110,15 @@ describe('formatINRCompact', () => {
     expect(formatINRCompact(1234000)).toBe('₹12.3k');
     expect(formatINRCompact(123400000)).toBe('₹12.3L');
     expect(formatINRCompact(1234000000)).toBe('₹1.2Cr');
+    expect(formatINRCompact(0)).toBe('₹0');
     expect(formatINRCompact(50000)).toBe('₹500');
   });
 
   it('keeps the sign', () => {
     expect(formatINRCompact(-1234000)).toBe('-₹12.3k');
+  });
+
+  it('shows a placeholder for non-finite input', () => {
+    expect(formatINRCompact(NaN)).toBe(INVALID_AMOUNT);
   });
 });

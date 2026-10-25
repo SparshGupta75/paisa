@@ -36,6 +36,9 @@ export function Row({
 }: RowProps) {
   const { colors, layout, spacing, typography } = useTheme();
 
+  // Screen readers should hear the amount and subtitle too, not just the title.
+  const composedLabel = accessibilityLabel ?? [title, subtitle, value].filter(Boolean).join(', ');
+
   const content = (
     <>
       {leading ? <View style={styles.leading}>{leading}</View> : null}
@@ -102,7 +105,7 @@ export function Row({
     <View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel ?? title}
+        accessibilityLabel={composedLabel}
         onPress={onPress}
         style={({ pressed }) => [
           styles.row,

@@ -28,14 +28,14 @@ export function EmptyState({ icon, title, message, children }: EmptyStateProps) 
         <Icon name={icon} size={28} color={colors.accent} />
       </View>
       <Text
-        style={[typography.headline, { color: colors.label, textAlign: 'center', marginTop: 14 }]}
+        style={[typography.headline, { color: colors.label, textAlign: 'center', marginTop: spacing.md }]}
       >
         {title}
       </Text>
       <Text
         style={[
           typography.subhead,
-          { color: colors.secondaryLabel, textAlign: 'center', marginTop: 6, maxWidth: 280 },
+          { color: colors.secondaryLabel, textAlign: 'center', marginTop: spacing.xs, maxWidth: 280 },
         ]}
       >
         {message}

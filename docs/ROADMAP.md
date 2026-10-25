@@ -5,14 +5,14 @@ revertable, and leaves `main` shippable.
 
 Status legend: `[x]` merged · `[~]` in review · `[ ]` not started.
 
-## PR 1 — Foundation ✅
+## PR 1 — Foundation 🚧
 
-- [x] Expo SDK 58 + React Native 0.88 + TypeScript strict
-- [x] Expo Router (native stack per tab, native `UITabBar`)
-- [x] iOS design system (`src/theme`, grouped-list primitives)
-- [x] SQLite + append-only migration runner (`src/db/migrate.ts`)
-- [x] Money module with integer-paise invariant + tests
-- [x] CI (typecheck, lint, test, iOS bundle), PR template, docs
+- [~] Expo SDK 58 + React Native 0.88 + TypeScript strict
+- [~] Expo Router (native stack per tab, native `UITabBar`)
+- [~] iOS design system (`src/theme`, grouped-list primitives)
+- [~] SQLite + append-only migration runner (`src/db/migrate.ts`)
+- [~] Money module with integer-paise invariant + tests
+- [~] CI (typecheck, lint, test, iOS bundle), PR template, docs
 
 **Out of scope:** any actual expense data. The app intentionally shows honest
 empty states until PR 2.

@@ -70,7 +70,17 @@ previous day in UTC), and never store a `Date` object in SQLite.
 ## Migrations
 
 `src/db/migrate.ts` holds an append-only array. `PRAGMA user_version` tracks the
-applied version; each migration runs inside `withExclusiveTransactionAsync`.
+applied version; each migration runs inside `withTransactionAsync`.
+
+Why not `withExclusiveTransactionAsync`: that helper runs the callback on a
+**second connection**, where the `PRAGMA foreign_keys = ON` set on the main
+connection does not apply — and SQLite ignores that pragma once a transaction is
+open. Migrations run before any screen mounts, so nothing else can join the
+transaction, and staying on the main connection keeps foreign keys enforced.
+`assertForeignKeysEnabled()` fails loudly if that assumption ever breaks.
+
+Concurrent `onInit` calls (Fast Refresh, remount after error) share a single
+in-flight promise, and each migration re-reads `user_version` before applying.
 
 Rules:
 
@@ -105,8 +115,9 @@ Screen  →  hook  →  repository  →  expo-sqlite
 
 ## Error handling
 
-- Migrations: failure must surface loudly (a red screen in dev, a blocking
-  recovery screen in production). Never swallow.
+- Migrations: failure must surface loudly. It throws out of `SQLiteProvider`, and
+  the root `ErrorBoundary` in `src/app/_layout.tsx` renders a recovery screen
+  with a retry button. Never swallow.
 - Queries: return typed results; throw on programmer error (bad SQL), return
   empty for "no rows".
 - Validation: `parseAmountToPaise` returns `null` rather than throwing, because
