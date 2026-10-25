@@ -4,26 +4,35 @@ A private, offline-first expense tracker for iPhone. Rupees in, rupees out — n
 account, no cloud, no ads. It installs from Safari to the home screen as a web
 app (PWA), and everything lives in SQLite on the device.
 
-> **Status: early.** PR 1 (foundation) is merged. Next is PR 2, which turns the
-> app into an installable PWA. See [docs/ROADMAP.md](docs/ROADMAP.md), and
+> **Status: early.** The foundation and the installable PWA shell are done; the
+> ledger is next. See [docs/ROADMAP.md](docs/ROADMAP.md), and
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#platform-decision) for why it is a
 > web app rather than a native one.
 
 ## Run it
 
-Until PR 2, development runs in **Expo Go** (the web build needs PR 2's
-`metro.config.js` for SQLite):
+Development, on the Mac:
 
 ```bash
 npm install
-npx expo start
+npx expo start --web
 ```
 
-Scan the QR code with the iPhone camera and open it in Expo Go. From PR 2,
-`npx expo start --web` and Safari replace this.
+Open the printed URL in Safari (or the iOS Simulator's Safari). Not in a Private
+window: Safari Private Browsing cannot open the database.
 
-On the iPhone (from PR 2): open the deployed URL in Safari, tap **Share → Add to
-Home Screen**, and launch Paisa from the home-screen icon. Removing that icon
+Production build, checked locally:
+
+```bash
+npm run build:web
+npm run serve:web
+```
+
+Then open `http://localhost:4173`.
+
+On the iPhone: deploy `dist/` to a static host that honours `_headers`
+(Cloudflare Pages or Netlify), open the URL in Safari, tap **Share → Add to Home
+Screen**, and launch Paisa from the home-screen icon. Removing that icon
 deletes the app's data, so keep a backup (PR 4).
 
 ## Commands
@@ -32,11 +41,13 @@ deletes the app's data, so keep a backup (PR 4).
 | --- | --- |
 | `npm start` | Start the dev server |
 | `npm run web` | Start the dev server for the browser |
+| `npm run build:web` | Export the web build with service worker and `_headers` |
+| `npm run serve:web` | Serve `dist/` locally with production headers |
+| `npm run e2e` | Playwright WebKit E2E against `dist/` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (flat config) |
 | `npm test` | Jest |
 | `npm run verify` | Typecheck + lint + tests (run before every push) |
-| `npx expo export --platform web --output-dir /tmp/paisa-web` | Bundle smoke test |
 
 Always install packages with `npx expo install <pkg>` so versions match SDK 58.
 

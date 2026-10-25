@@ -20,7 +20,7 @@ SQLite (OPFS) inside that app's storage. The host serves code, never data.
 | Supply-chain compromise in a dependency | Medium | High | Minimal dependency surface, pinned lockfile, review, audit in CI |
 | Data leaking through logs / crash reports | Medium | High | No analytics, no crash SDK, no PII in logs |
 | Losing the origin: domain lapses or a shared-host subdomain is taken over | Low | **Critical** (new owner's code reads all data) | One permanent custom domain, auto-renew, registrar lock, 2FA. Never move origins: OPFS data and passkeys are bound to the exact origin, so moving orphans all data |
-| Offline launch serves a cached page with stale headers/CSP | Medium | Medium | Header fixes only apply after the service worker updates; PR 2 checks `crossOriginIsolated` on an offline cold start |
+| Offline launch serves a cached page with stale headers/CSP | Medium | Medium | Header fixes only apply after the service worker updates; E2E checks `crossOriginIsolated` on an offline cold start |
 | Backup file read from iCloud Drive or a shared device | Medium | High | Backups are plaintext JSON in v1; label the file clearly, and consider an optional passphrase (WebCrypto AES-GCM) in PR 4 |
 | Data loss (home-screen icon removed, storage evicted) | Medium | High | `navigator.storage.persist()`, backup reminders, export/restore (PR 4) |
 
@@ -40,13 +40,14 @@ to its own origin.
 
 ## Required response headers
 
-Set on the host (PR 2) for **every path** (`/*`, including `.wasm`, `/_expo/*`, and `sw.js`) and verified by the pen-test agent on every deploy:
+Defined once in `scripts/web/headers.js`, applied by the dev server, the E2E server, and the host's `_headers` for **every path** (`/*`, including `.wasm`, `/_expo/*`, and `sw.js`) and verified by the pen-test agent on every deploy:
 
 | Header | Value |
 | --- | --- |
-| `Content-Security-Policy` | Starting point, verified against the real export in PR 2: `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (`blob:` is required: Metro wraps the SQLite worker in a blob URL when the page is cross-origin isolated. Keep `'unsafe-inline'` for styles or replace it with a hash of Expo's inline `expo-reset` style. `'wasm-unsafe-eval'` is why iOS 16 is the minimum — see ARCHITECTURE.md stack table) |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (`blob:` is required: Metro wraps the SQLite worker in a blob URL when the page is cross-origin isolated. Keep `'unsafe-inline'` for styles or replace it with a hash of Expo's inline `expo-reset` style. `'wasm-unsafe-eval'` is why iOS 16 is the minimum — see ARCHITECTURE.md stack table) |
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Cross-Origin-Embedder-Policy` | `require-corp` (Safari is not known to support `credentialless`; Paisa loads no third-party resources, so `require-corp` costs nothing) |
+| `Cross-Origin-Resource-Policy` | `same-origin` |
 | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` |
 | `X-Content-Type-Options` | `nosniff` |
 | `Referrer-Policy` | `no-referrer` |

@@ -27,10 +27,10 @@ Consequences, enforced elsewhere in the docs:
 | --- | --- | --- |
 | Runtime | Expo SDK 58, React Native 0.88 via `react-native-web`, React 19.3 | Target: Safari on iOS 16+, installed to home screen. iOS 16 is the minimum (CSP `'wasm-unsafe-eval'`) |
 | Language | TypeScript, `strict` + `noUncheckedIndexedAccess` | No `any` without a comment justifying it |
-| Navigation | Expo Router 58, stack per tab | Verify `NativeTabs` on web in PR 2; fall back to JS `Tabs` |
+| Navigation | Expo Router 58, `expo-router/js-tabs` bottom tabs, stack per tab | `NativeTabs` renders a floating top pill on the web, so it is not used |
 | Storage | `expo-sqlite` web (wa-sqlite WASM, OPFS `AccessHandlePoolVFS`, in a worker) | Requires cross-origin isolation — see below |
-| Offline | Service worker precaching the exported app shell | Added in PR 2 |
-| Icons | Open-licence web icon set (chosen in PR 2) | SF Symbols are licensed for Apple platforms only |
+| Offline | Service worker generated at build time (`scripts/build-web.js`) precaching the whole export | No Workbox; ~60 lines in `scripts/web/sw.template.js` |
+| Icons | Ionicons via `@expo/vector-icons`, behind a semantic `<Icon name>` API | SF Symbols are licensed for Apple platforms only |
 | Tests | Jest 30 + `jest-expo` (unit, integration); Playwright WebKit (E2E) | Playwright runs on Linux CI with an iPhone viewport |
 | CI | GitHub Actions | typecheck → lint → test → web export → E2E |
 | Hosting | Static host that sets custom headers (EAS Hosting or Cloudflare Pages) | GitHub Pages cannot set COOP/COEP |
@@ -45,15 +45,15 @@ does not leave the device.
 is **cross-origin isolated**. Source of truth:
 `node_modules/expo-sqlite/skills/expo-sqlite/references/web-and-config.md`.
 
-- (PR 2) `metro.config.js` adds `wasm` to `assetExts` and sends COOP/COEP headers from
-  the dev server.
+- `metro.config.js` adds `wasm` to `assetExts` and sends the production headers
+  (from `scripts/web/headers.js`) from the dev server.
 - The production host must send `Cross-Origin-Opener-Policy: same-origin` and
   `Cross-Origin-Embedder-Policy: require-corp` on every path. Expo's docs use
   `credentialless`, but Safari is not known to support it; Paisa loads no
   third-party resources, so `require-corp` is safe. The dev server in
   `metro.config.js` uses the same value.
 - The origin is permanent. OPFS data and passkeys are bound to it, so the app
-  lives on one custom domain chosen in PR 2 and never moves.
+  lives on one custom domain, chosen before the first real deploy, and never moves.
 - `withExclusiveTransactionAsync()` and a custom database `directory` are not
   supported on web. Migrations already use `withTransactionAsync`.
 - Storage: Safari keeps home-screen web apps' storage separate from Safari's
@@ -62,6 +62,21 @@ is **cross-origin isolated**. Source of truth:
   are a core feature, not an extra.
 - **Removing the home-screen icon deletes all data.** Say so in onboarding and in
   Settings, next to the backup button.
+- **Private Browsing and ephemeral contexts cannot open the database.** WebKit
+  refuses OPFS sync access handles there ("unknown transient reason"); the app
+  shows its start-up error screen. E2E therefore uses persistent WebKit
+  profiles (`e2e/fixtures.ts`).
+- **Service-worker updates wait.** A new version installs in the background and
+  takes over only after every window of the old one closes (no `skipWaiting`),
+  so migrations never run under a half-updated app.
+
+## Building and hosting
+
+`npm run build:web` runs `expo export --platform web` and then
+`scripts/build-web.js`, which writes `dist/sw.js` (versioned by a hash of the
+export) and `dist/_headers` (Cloudflare Pages / Netlify format). Deploy `dist/`
+as static files. On a host that ignores `_headers`, configure the same headers
+from `scripts/web/headers.js` by hand — the app will not start without COOP/COEP.
 
 ## Directory layout
 
@@ -71,20 +86,27 @@ src/
     _layout.tsx           # providers: theme, SQLite, root stack
     (tabs)/
       _layout.tsx         # tab bar
-      (home)/             # each tab owns its own stack
-      (activity)/
-      (budgets)/
-      (settings)/
+      (home)/             # each tab owns its own stack; Home is a group so it is `/`
+      activity/           # real directories: groups add no URL segment, so
+      budgets/            # grouping these too would map every index to `/`
+      settings/
   components/
-    nav/TabStack.tsx      # shared native-stack options
+    nav/TabStack.tsx      # shared stack options
     ui/                   # design-system primitives
+  hooks/                  # React hooks that wire lib code into screens
   db/
     migrate.ts            # append-only migrations
     repositories/         # (PR 3) typed query modules, one per aggregate
   lib/                    # pure functions: money, dates, parsing, csv
+    web/pwa.ts            # service-worker + persistent-storage registration
   theme/                  # tokens + ThemeProvider
-e2e/                      # (PR 2) Playwright specs, WebKit + iPhone viewport
-public/                   # (PR 2) manifest, icons, service worker, _headers
+e2e/                      # Playwright specs, WebKit + iPhone 15 profile
+public/                   # index.html template, manifest, icons (copied into the export)
+scripts/
+  web/headers.js          # CSP + security headers: one source for dev, E2E, and host
+  web/precache.js         # service-worker generation
+  build-web.js            # post-export: writes dist/sw.js and dist/_headers
+  serve-web.js            # local static server with production headers (127.0.0.1)
 docs/                     # this folder — the project's memory
 ```
 
@@ -178,7 +200,7 @@ Screen  →  hook  →  repository  →  expo-sqlite
 | Target | Budget |
 | --- | --- |
 | Cold start to first screen (installed PWA, offline) | < 2 s on iPhone 12 |
-| App shell download (first install) | < 1.5 MB gzipped, WASM included — a target to confirm in PR 2 |
+| App shell download (first install) | < 1.5 MB gzipped, WASM included (PR 2 measured 1.1 MB) |
 | Add-expense flow | < 300 ms from tap to saved |
 | Activity list scroll | 60 fps at 5,000 rows |
 | Home summary query | < 30 ms |
