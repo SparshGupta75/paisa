@@ -48,23 +48,24 @@ interface RegistrationLike extends EventSource {
 
 /**
  * Calls `onReady` once a new version has installed and is waiting to replace
- * the running one. Not on the very first install (no controller yet): there is
- * nothing to replace, and the page is already the latest version.
+ * the running one. Not for the very first install (no controller yet): there
+ * is nothing to replace, and the page is already the latest version.
  */
 export function watchForUpdate(
   registration: RegistrationLike,
-  { hasController }: { hasController: boolean },
+  { hasController }: { hasController: () => boolean },
   onReady: () => void,
 ): void {
-  if (!hasController) return;
-  if (registration.waiting) {
+  if (registration.waiting && hasController()) {
     onReady();
     return;
   }
+  // Keep listening even on the first install: a later deploy in the same
+  // session is a real update once the first worker controls the page.
   registration.addEventListener('updatefound', () => {
     const worker = registration.installing as WorkerLike | null;
     worker?.addEventListener('statechange', () => {
-      if (worker.state === 'installed') onReady();
+      if (worker.state === 'installed' && hasController()) onReady();
     });
   });
 }

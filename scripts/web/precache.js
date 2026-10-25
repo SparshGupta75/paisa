@@ -22,7 +22,7 @@ function walk(dir) {
 // Characters a browser leaves unencoded in a URL path. The Cache API matches
 // URLs exactly, so a cache key must be encoded the way the request will be:
 // encodeURIComponent alone turns the `@` in node_modules/@expo into %40.
-const PATH_SAFE = /[A-Za-z0-9\-._~!$&'()*+,;=:@]/;
+const PATH_SAFE = /[A-Za-z0-9\-._~!$&'()*+,;=:@[\]|]/;
 
 function encodeSegment(segment) {
   return [...segment].map((char) => (PATH_SAFE.test(char) ? char : encodeURIComponent(char))).join('');

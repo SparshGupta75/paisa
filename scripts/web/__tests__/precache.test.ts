@@ -70,8 +70,8 @@ describe('listPrecacheFiles', () => {
     const files: string[] = listPrecacheFiles(makeDist(Object.fromEntries(names.map((n) => [n, 'x']))));
     expect(files).toContain('/assets/node_modules/@expo/vector-icons/Ionicons.abc.ttf');
     expect(files).toContain('/assets/clear-icon@2x.png');
-    // Browsers send [ ] | ^ raw in paths.
-    expect(files).toContain('/assets/[id]-chunk|v^2.js');
+    // Browsers send [ ] | raw in paths but encode ^ (per the URL parser below).
+    expect(files).toContain('/assets/[id]-chunk|v%5E2.js');
     for (const url of files) {
       expect(new URL(url, 'https://paisa.test').pathname).toBe(url);
     }

@@ -31,7 +31,7 @@ export function usePwaStartup(): { updateReady: boolean; update: () => void } {
 
     void registerServiceWorker<ServiceWorkerRegistration>(navigator, { isDev: __DEV__ }, (reg) => {
       registration.current = reg;
-      watchForUpdate(reg, { hasController: !!container?.controller }, () => setUpdateReady(true));
+      watchForUpdate(reg, { hasController: () => !!container?.controller }, () => setUpdateReady(true));
       document.addEventListener('visibilitychange', onVisible);
     });
     void requestPersistentStorage(navigator);

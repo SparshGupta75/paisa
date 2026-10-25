@@ -99,8 +99,10 @@ Tracked consciously. Re-evaluate each time the dependency is upgraded.
 Verification: `npm ls zod node-forge` shows them under Expo's CLI tooling (and
 `zod` also under the dev-only `eslint-plugin-react-hooks`); neither appears in
 `dist/`. CI enforces this table: `scripts/audit-check.js` fails the build on any
-high/critical advisory whose package is not listed in its `ACCEPTED` array, so a
-new exception needs a row here **and** an entry there. If a high-severity
+high/critical advisory whose URL is not in its `ACCEPTED_ADVISORIES` list (so a
+new advisory on an already-excepted package still fails), and fails closed when
+`npm audit` cannot produce a report. A new exception needs a row here **and** an
+entry there. If a high-severity
 advisory ever lands in a package that is bundled into the app, it is a **P0** —
 stop and fix.
 
