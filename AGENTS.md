@@ -79,6 +79,14 @@ rather than implying visual verification.
     third-party origin (CDN, web font, analytics). Existing SF Symbol uses
     (`Icon.tsx`, the tab layout) are replaced in PR 2.
 
+## Skills
+
+Project skills live in `.claude/skills/` (see its README for sources and pinned
+commits): `/ponytail` (smallest complete change), `/ponytail-review`,
+`/ponytail-audit`, `/ponytail-debt`, and `/graphify` (codebase knowledge graph;
+user-invoked only, because it installs a Python package). Project rules in this
+file and `docs/` override any skill.
+
 ## Token discipline
 
 - Prefer reading the specific doc section over grepping the whole codebase.
