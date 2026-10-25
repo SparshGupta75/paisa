@@ -44,6 +44,8 @@ coverage/
 /ios
 /android
 
+# graphify output
+/graphify-out/
 # Playwright
 /test-results/
 /playwright-report/

@@ -79,6 +79,16 @@ rather than implying visual verification.
 13. Never use React Native `Alert` (no-op on web), SF Symbols, haptics, or any
     third-party origin (CDN, web font, analytics). Icons go through `<Icon name>`.
 
+## Skills
+
+Project skills live in `.claude/skills/` (see its README for sources and pinned
+commits): `/ponytail` (smallest complete change), `/ponytail-review`,
+`/ponytail-audit`, `/ponytail-debt`, and `/graphify` (codebase knowledge graph).
+`/ponytail` and `/graphify` are user-invoked only. When running `/graphify`,
+follow the rules in `.claude/skills/README.md`: ask before installing it, never
+with a Gemini/Google key set, no `--*-push`, no hook or CLAUDE.md install.
+Project rules in this file and `docs/` override any skill.
+
 ## Token discipline
 
 - Prefer reading the specific doc section over grepping the whole codebase.

@@ -84,7 +84,9 @@ Use `.github/pull_request_template.md`. The description must state:
 
 After the PR is open and CI has run, three review agents run **in parallel**.
 None of them is the agent that wrote the code. Definitions live in
-`.claude/agents/`:
+`.claude/agents/`, and all three run on Sonnet (`model: sonnet`, currently
+Sonnet 5.5). When launching them as general-purpose agents instead, pass
+`model: sonnet` explicitly:
 
 | Agent | File | Checks |
 | --- | --- | --- |
