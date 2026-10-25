@@ -16,18 +16,84 @@ interface StorageLike {
 export type ServiceWorkerResult = 'registered' | 'unsupported' | 'skipped-dev' | 'failed';
 export type PersistResult = 'persisted' | 'denied' | 'unsupported';
 
-export async function registerServiceWorker(
+export async function registerServiceWorker<R>(
   nav: { serviceWorker?: ServiceWorkerLike } | undefined,
   { isDev }: { isDev: boolean },
+  onRegistration?: (registration: R) => void,
 ): Promise<ServiceWorkerResult> {
   // Metro's dev server serves no sw.js; registering would cache dev bundles.
   if (isDev) return 'skipped-dev';
   if (!nav?.serviceWorker) return 'unsupported';
   try {
-    await nav.serviceWorker.register('/sw.js', { scope: '/' });
+    const registration = await nav.serviceWorker.register('/sw.js', { scope: '/' });
+    onRegistration?.(registration as R);
     return 'registered';
   } catch {
     return 'failed';
+  }
+}
+
+interface EventSource {
+  addEventListener: (type: string, listener: () => void) => void;
+}
+
+interface WorkerLike extends EventSource {
+  state: string;
+}
+
+interface RegistrationLike extends EventSource {
+  waiting: object | null;
+  installing: WorkerLike | object | null;
+}
+
+/**
+ * Calls `onReady` once a new version has installed and is waiting to replace
+ * the running one. Not on the very first install (no controller yet): there is
+ * nothing to replace, and the page is already the latest version.
+ */
+export function watchForUpdate(
+  registration: RegistrationLike,
+  { hasController }: { hasController: boolean },
+  onReady: () => void,
+): void {
+  if (!hasController) return;
+  if (registration.waiting) {
+    onReady();
+    return;
+  }
+  registration.addEventListener('updatefound', () => {
+    const worker = registration.installing as WorkerLike | null;
+    worker?.addEventListener('statechange', () => {
+      if (worker.state === 'installed') onReady();
+    });
+  });
+}
+
+/**
+ * Tells the waiting worker to take over, then reloads once it controls the
+ * page. Person-initiated, so no migration runs under a half-updated app.
+ */
+export function applyUpdate(
+  registration: { waiting: { postMessage: (message: unknown) => void } | null },
+  container: EventSource,
+  reload: () => void,
+): void {
+  if (!registration.waiting) return;
+  let reloaded = false;
+  container.addEventListener('controllerchange', () => {
+    if (reloaded) return;
+    reloaded = true;
+    reload();
+  });
+  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+}
+
+/** Asks the browser to re-fetch sw.js now, e.g. when the app returns to the foreground. */
+export async function checkForUpdate(registration: { update: () => Promise<unknown> }): Promise<void> {
+  try {
+    await registration.update();
+  } catch {
+    // Offline or a transient failure; the next foreground check retries.
   }
 }
 

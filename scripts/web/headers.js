@@ -15,7 +15,7 @@ const CSP = [
   // react-native-web and Expo's reset emit inline styles.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
-  "font-src 'self' data:",
+  "font-src 'self'",
   "connect-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",
@@ -51,15 +51,22 @@ function headersFor(pathname) {
   return { ...SECURITY_HEADERS, 'Cache-Control': cacheControlFor(pathname) };
 }
 
-/** Netlify / Cloudflare Pages `_headers` format. */
+/**
+ * Netlify / Cloudflare Pages `_headers` format. Both hosts merge every matching
+ * rule and join a repeated header with commas, so Cache-Control is set by
+ * exactly one rule per path and never in the catch-all.
+ */
 function toHeadersFile() {
   const block = (pattern, headers) =>
     [pattern, ...Object.entries(headers).map(([name, value]) => `  ${name}: ${value}`)].join('\n');
 
   return (
     [
-      block('/*', { ...SECURITY_HEADERS, 'Cache-Control': NO_CACHE }),
+      block('/*', SECURITY_HEADERS),
+      block('/', { 'Cache-Control': NO_CACHE }),
+      block('/index.html', { 'Cache-Control': NO_CACHE }),
       block('/sw.js', { 'Cache-Control': NO_CACHE }),
+      block('/manifest.webmanifest', { 'Cache-Control': NO_CACHE }),
       block('/_expo/static/*', { 'Cache-Control': IMMUTABLE }),
     ].join('\n') + '\n'
   );

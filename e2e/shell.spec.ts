@@ -120,8 +120,13 @@ test.describe('PWA shell', () => {
       .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null))
       .toBe(true);
 
+    // Let the controlled page finish loading (the SQLite worker fetches its
+    // WASM lazily), so the offline reload cannot cancel an in-flight request.
+    await expect(page.getByText('Welcome to Paisa')).toBeVisible();
+    await page.waitForLoadState('networkidle');
+
     const failed: string[] = [];
-    page.on('requestfailed', (req) => failed.push(req.url()));
+    page.on('requestfailed', (req) => failed.push(`${req.url()} (${req.failure()?.errorText})`));
 
     await context.setOffline(true);
     await page.reload();

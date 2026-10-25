@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import type http from 'node:http';
+import http from 'node:http';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -30,6 +30,19 @@ afterEach(async () => {
   await new Promise((resolve) => server.close(resolve));
 });
 
+/** jest-expo mocks global fetch, so talk HTTP directly. */
+function get(url: string): Promise<{ status: number; headers: http.IncomingHttpHeaders; text: string }> {
+  return new Promise((resolve, reject) => {
+    http
+      .get(url, (res) => {
+        let text = '';
+        res.on('data', (chunk) => (text += chunk));
+        res.on('end', () => resolve({ status: res.statusCode ?? 0, headers: res.headers, text }));
+      })
+      .on('error', reject);
+  });
+}
+
 function rawRequest(line: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const socket = net.connect((server.address() as net.AddressInfo).port, '127.0.0.1', () => {
@@ -46,38 +59,38 @@ describe('serve-web', () => {
   it('answers a malformed request URL with 400 and keeps serving', async () => {
     const reply = await rawRequest('GET http://[::1 HTTP/1.1');
     expect(reply).toMatch(/^HTTP\/1\.1 400/);
-    const res = await fetch(`${base}/`);
+    const res = await get(`${base}/`);
     expect(res.status).toBe(200);
   });
 
   it('refuses a symlink that points outside the build directory', async () => {
     fs.symlinkSync(path.join(outside, 'secret.txt'), path.join(root, 'leak.txt'));
-    const res = await fetch(`${base}/leak.txt`);
+    const res = await get(`${base}/leak.txt`);
     expect(res.status).toBe(404);
-    expect(await res.text()).not.toContain('top secret');
+    expect(res.text).not.toContain('top secret');
   });
 
   it('labels the shell no-cache wherever it is served from, even under /_expo/static/', async () => {
     for (const url of ['/_expo/static/nope', '/_expo/static/js/', '/activity']) {
-      const res = await fetch(`${base}${url}`);
-      expect(await res.text()).toBe('<html>shell</html>');
-      expect(res.headers.get('cache-control')).toBe('no-cache');
+      const res = await get(`${base}${url}`);
+      expect(res.text).toBe('<html>shell</html>');
+      expect(res.headers['cache-control']).toBe('no-cache');
     }
   });
 
   it('labels a file by what it is, not by the path used to reach it', async () => {
-    const res = await fetch(`${base}/_expo/static/..%2f..%2fsw.js`);
-    expect(await res.text()).toBe('worker');
-    expect(res.headers.get('cache-control')).toBe('no-cache');
+    const res = await get(`${base}/_expo/static/..%2f..%2fsw.js`);
+    expect(res.text).toBe('worker');
+    expect(res.headers['cache-control']).toBe('no-cache');
 
-    const bundle = await fetch(`${base}/_expo/static/js/entry-abc.js`);
-    expect(bundle.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    const bundle = await get(`${base}/_expo/static/js/entry-abc.js`);
+    expect(bundle.headers['cache-control']).toBe('public, max-age=31536000, immutable');
   });
 
   it('returns 404 instead of crashing when the shell is missing', async () => {
     fs.rmSync(path.join(root, 'index.html'));
-    const res = await fetch(`${base}/activity`);
+    const res = await get(`${base}/activity`);
     expect(res.status).toBe(404);
-    expect((await fetch(`${base}/sw.js`)).status).toBe(200);
+    expect((await get(`${base}/sw.js`)).status).toBe(200);
   });
 });

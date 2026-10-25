@@ -66,9 +66,15 @@ is **cross-origin isolated**. Source of truth:
   refuses OPFS sync access handles there ("unknown transient reason"); the app
   shows its start-up error screen. E2E therefore uses persistent WebKit
   profiles (`e2e/fixtures.ts`).
-- **Service-worker updates wait.** A new version installs in the background and
-  takes over only after every window of the old one closes (no `skipWaiting`),
-  so migrations never run under a half-updated app.
+- **Service-worker updates are person-initiated.** A new version installs in the
+  background (the app calls `registration.update()` whenever it returns to the
+  foreground) and then waits. The app shows an "Update" banner; tapping it sends
+  `SKIP_WAITING` and reloads once the new worker controls the page. Otherwise it
+  takes over when every window of the old one closes. Migrations therefore never
+  run under a half-updated app. (`src/lib/web/pwa.ts`, `src/hooks/usePwaStartup.ts`)
+- **Precache keys are browser-encoded.** The Cache API matches URLs exactly, so
+  `scripts/web/precache.js` encodes paths the way the browser requests them
+  (`@` stays `@`). A mismatch silently breaks offline loading of that file.
 
 ## Building and hosting
 

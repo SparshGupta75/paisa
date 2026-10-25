@@ -14,7 +14,7 @@ SQLite (OPFS) inside that app's storage. The host serves code, never data.
 | XSS — script injected through a note, merchant string, or imported file | Medium | **Critical** (full data access) | React text rendering only, no `dangerouslySetInnerHTML`, strict CSP, no `eval` |
 | Malicious statement / backup / CSV file | Medium | Medium | Strict parsers, size caps, no formula evaluation, dry-run before write |
 | Compromised host or deploy pipeline ships malicious code | Low | **Critical** | Deploy only from CI on `main`, review agents pass on the preview deploy before promotion to production, host account with 2FA, pinned lockfile, SRI not needed (no third-party origins) |
-| Stale or poisoned service-worker cache | Low | Medium | Versioned precache, update prompt, SW served with `Cache-Control: no-cache` |
+| Stale or poisoned service-worker cache | Low | Medium | Versioned precache (only 2xx same-origin responses), "Update" banner when a new version is waiting, `registration.update()` on every return to the foreground, SW served with `Cache-Control: no-cache` |
 | Clickjacking / embedding | Low | Medium | `frame-ancestors 'none'` in CSP |
 | SQL injection through user input | Low | High | Parameterised statements only |
 | Supply-chain compromise in a dependency | Medium | High | Minimal dependency surface, pinned lockfile, review, audit in CI |
@@ -44,7 +44,7 @@ Defined once in `scripts/web/headers.js`, applied by the dev server, the E2E ser
 
 | Header | Value |
 | --- | --- |
-| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (`blob:` is required: Metro wraps the SQLite worker in a blob URL when the page is cross-origin isolated. Keep `'unsafe-inline'` for styles or replace it with a hash of Expo's inline `expo-reset` style. `'wasm-unsafe-eval'` is why iOS 16 is the minimum — see ARCHITECTURE.md stack table) |
+| `Content-Security-Policy` | `default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` (`blob:` is required: Metro wraps the SQLite worker in a blob URL when the page is cross-origin isolated. Keep `'unsafe-inline'` for styles or replace it with a hash of Expo's inline `expo-reset` style. `'wasm-unsafe-eval'` is why iOS 16 is the minimum — see ARCHITECTURE.md stack table) |
 | `Cross-Origin-Opener-Policy` | `same-origin` |
 | `Cross-Origin-Embedder-Policy` | `require-corp` (Safari is not known to support `credentialless`; Paisa loads no third-party resources, so `require-corp` costs nothing) |
 | `Cross-Origin-Resource-Policy` | `same-origin` |
@@ -93,11 +93,16 @@ Tracked consciously. Re-evaluate each time the dependency is upgraded.
 | `node-forge` via `@expo/code-signing-certificates` (high) | — | Used by EAS/CLI signing tooling, never at runtime | Build-time only |
 | `@expo/cli` transitive advisories (high) | — | Local dev server and build tooling | Not in the app bundle; keep CLI updated with Expo SDK |
 | `eval('require')` in the bundle (from `uuid`) | — | Node-only branch, never reached in the browser; not affected by CSP because it never runs | Do not report as an XSS sink |
+| `eval(body)` in the bundle (`expo/build/async-require/fetchThenEvalJs.js`) | — | Fallback loader for split bundles; in the browser they load through `<script>` tags. CSP (`script-src` without `'unsafe-eval'`) blocks it if ever reached | Do not report as an XSS sink |
 | Database not encrypted by the app | — | SQLCipher is unavailable on the web; a passphrase-derived key would add a prompt on every open; deferred for v1 | iOS data protection while locked; app lock (PR 13); research WebAuthn PRF-derived key later |
 
-Verification: `npm ls zod node-forge` shows they resolve only under
-`node_modules/expo/node_modules/@expo/cli`. If a high-severity advisory ever
-lands in a package that is bundled into the app, it is a **P0** — stop and fix.
+Verification: `npm ls zod node-forge` shows them under Expo's CLI tooling (and
+`zod` also under the dev-only `eslint-plugin-react-hooks`); neither appears in
+`dist/`. CI enforces this table: `scripts/audit-check.js` fails the build on any
+high/critical advisory whose package is not listed in its `ACCEPTED` array, so a
+new exception needs a row here **and** an entry there. If a high-severity
+advisory ever lands in a package that is bundled into the app, it is a **P0** —
+stop and fix.
 
 ## Dependency policy
 

@@ -19,8 +19,17 @@ function walk(dir) {
   });
 }
 
+// Characters a browser leaves unencoded in a URL path. The Cache API matches
+// URLs exactly, so a cache key must be encoded the way the request will be:
+// encodeURIComponent alone turns the `@` in node_modules/@expo into %40.
+const PATH_SAFE = /[A-Za-z0-9\-._~!$&'()*+,;=:@]/;
+
+function encodeSegment(segment) {
+  return [...segment].map((char) => (PATH_SAFE.test(char) ? char : encodeURIComponent(char))).join('');
+}
+
 function toUrlPath(distDir, file) {
-  const segments = path.relative(distDir, file).split(path.sep).map(encodeURIComponent);
+  const segments = path.relative(distDir, file).split(path.sep).map(encodeSegment);
   return `/${segments.join('/')}`;
 }
 
@@ -45,20 +54,32 @@ function computeVersion(distDir, files) {
   return hash.digest('hex').slice(0, 12);
 }
 
+const PROBE_ORIGIN = 'https://paisa.invalid';
+
+function isSameOriginPath(file) {
+  if (typeof file !== 'string' || !file.startsWith('/')) return false;
+  // Let the URL parser decide: it treats `\` as `/` and drops tabs, so
+  // `/\evil.test` would otherwise slip past a prefix check.
+  try {
+    return new URL(file, PROBE_ORIGIN).origin === PROBE_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
 function buildServiceWorker({ version, files }) {
-  if (!/^[0-9a-f]{12}$/.test(version)) {
+  if (typeof version !== 'string' || !/^[0-9a-f]{12}$/.test(version)) {
     throw new Error('Service worker version must be a 12-character hex hash.');
   }
-  for (const file of files) {
-    if (typeof file !== 'string' || !file.startsWith('/') || file.startsWith('//')) {
-      throw new Error('Precache entries must be same-origin absolute paths.');
-    }
+  if (!files.every(isSameOriginPath)) {
+    throw new Error('Precache entries must be same-origin absolute paths.');
   }
 
+  // Replacer functions: a string replacement would expand `$&` and friends.
   return fs
     .readFileSync(TEMPLATE_PATH, 'utf8')
-    .replace('"__PAISA_VERSION__"', JSON.stringify(version))
-    .replace('["__PAISA_PRECACHE__"]', JSON.stringify(files));
+    .replace('"__PAISA_VERSION__"', () => JSON.stringify(version))
+    .replace('["__PAISA_PRECACHE__"]', () => JSON.stringify(files));
 }
 
 module.exports = { buildServiceWorker, computeVersion, listPrecacheFiles };

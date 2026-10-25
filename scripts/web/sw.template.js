@@ -6,9 +6,14 @@ const CACHE = `paisa-shell-${VERSION}`;
 const SHELL = '/index.html';
 
 self.addEventListener('install', (event) => {
-  // No skipWaiting(): a new version takes over only when every window of the
-  // old one has closed, so a migration never runs under a half-updated app.
+  // No automatic skipWaiting(): a new version waits until the person taps
+  // "Update" (SKIP_WAITING below) or every window of the old one closes, so a
+  // migration never runs under a half-updated app.
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(PRECACHE)));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
