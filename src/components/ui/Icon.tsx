@@ -39,6 +39,8 @@ export function Icon({ name, size = 22, color }: IconProps) {
       name={GLYPHS[name]}
       size={size}
       color={color}
+      // Glyph box exactly `size` tall; the font's default line height adds ~2px.
+      style={{ lineHeight: size }}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       aria-hidden
