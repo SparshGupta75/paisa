@@ -4,10 +4,13 @@ Operating instructions for AI agents working in this repo.
 
 ## 60-second brief
 
-Paisa is a local-only iPhone expense tracker (Expo SDK 58, React Native 0.88,
-TypeScript strict, expo-sqlite). Money is **integer paise**. Dates use
-`occurred_on` as a local `YYYY-MM-DD` string. No backend, no telemetry. iOS-native
-UI only. One feature per PR, second-agent review required before merge.
+Paisa is a local-only expense tracker that ships as an **installable web app
+(PWA) on iPhone** — there is no Apple Developer account (Expo SDK 58, React
+Native 0.88 via react-native-web, TypeScript strict, expo-sqlite on WASM/OPFS).
+Money is **integer paise**. Dates use `occurred_on` as a local `YYYY-MM-DD`
+string. No backend, no telemetry. iOS look, web runtime. ~90% of the owner's
+spend is UPI, so statement import is the core feature. One feature per PR, tests
+first, three review agents (test, security, pen-test) before merge.
 
 ## Read docs instead of re-deriving them
 
@@ -42,12 +45,13 @@ React Native API:
 ```bash
 npx expo install <package>   # ALWAYS, instead of npm install for Expo modules
 npm run verify               # typecheck + lint + test — run before declaring done
-npx expo start --ios         # simulator
-npx expo export --platform ios --output-dir /tmp/paisa-export   # bundle smoke test
+npx expo start --web         # dev server; open in Safari (from PR 2; Expo Go before that)
+npx expo export --platform web --output-dir /tmp/paisa-web   # bundle smoke test (fails until PR 2 adds metro.config.js)
 ```
 
-Run `npm run verify` before claiming any task is complete. If you cannot run the
-simulator, say so explicitly rather than implying visual verification.
+Run `npm run verify` before claiming any task is complete. If you could not test
+in the installed PWA on an iPhone or the Simulator's Safari, say so explicitly
+rather than implying visual verification.
 
 ## Hard rules
 
@@ -61,11 +65,19 @@ simulator, say so explicitly rather than implying visual verification.
 5. No hardcoded colours, font sizes, or spacing in components — use `useTheme()`.
 6. Never `console.log` amounts, notes, merchant names, or account names.
 7. Do not add a dependency without a stated reason in the PR description.
-8. Do not create or edit `ios/` or `android/` — configure native behaviour in
-   `app.json` and config plugins (CNG).
+8. Do not add native-only code or modules (`ios/`, `android/`, config plugins
+   for native features). Anything that does not work in iOS Safari is out of
+   scope — see `docs/ARCHITECTURE.md#platform-decision`.
 9. Do not run `npm audit fix --force`; it downgrades Expo to SDK 44. See
    `docs/SECURITY.md#accepted-risks`.
 10. One feature per PR. Do not sneak refactors into a feature branch.
+11. Tests before implementation, in a separate commit (`docs/WORKFLOW.md#3-build-test-first`).
+    Missing tests for money/date/parser logic is P1; wrong commit order is P2.
+12. A PR is not done until `test-reviewer`, `security-reviewer`, and `pen-tester`
+    (`.claude/agents/`) have reported and every P0/P1 is fixed.
+13. Never use React Native `Alert` (no-op on web), SF Symbols, haptics, or any
+    third-party origin (CDN, web font, analytics). Existing SF Symbol uses
+    (`Icon.tsx`, the tab layout) are replaced in PR 2.
 
 ## Token discipline
 

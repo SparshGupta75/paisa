@@ -1,20 +1,67 @@
 # Architecture
 
+## Platform decision
+
+**Paisa ships as an installable web app (PWA), added to the iPhone home screen
+from Safari.** Decided 2026-10-25.
+
+Why: there is no paid Apple Developer account. The alternatives considered:
+
+| Option | Why not |
+| --- | --- |
+| Expo Go | Loads the app from a dev server or a published update; offline cold start is not documented as supported (forum reports say it needs a connection), and only the native modules bundled in Expo Go are available. Fine for development, not for daily use. |
+| Free Apple ID + Xcode build | Works offline, but the provisioning profile expires after 7 days and the app stops launching until it is reinstalled from the Mac. |
+| **PWA** | Works offline, never expires, needs no Mac after deploy. Costs: no widgets, no SF Symbols, no haptics, no SQLCipher. |
+
+Consequences, enforced elsewhere in the docs:
+
+- iOS-native code (`ios/`, config plugins, native-only modules) is out of scope.
+  Code stays React Native + `react-native-web`, so a native build remains
+  possible later, but nothing is built for it.
+- Desktop browsers are a debugging convenience only (X-05).
+- The host serves static files only (X-06). It never sees user data.
+
 ## Stack
 
 | Concern | Choice | Notes |
 | --- | --- | --- |
-| Runtime | Expo SDK 58, React Native 0.88, React 19.3 | New Architecture enabled |
+| Runtime | Expo SDK 58, React Native 0.88 via `react-native-web`, React 19.3 | Target: Safari on iOS 16+, installed to home screen. iOS 16 is the minimum (CSP `'wasm-unsafe-eval'`) |
 | Language | TypeScript, `strict` + `noUncheckedIndexedAccess` | No `any` without a comment justifying it |
-| Navigation | Expo Router 58, native stack per tab, `NativeTabs` | Real `UINavigationController` / `UITabBar` |
-| Storage | `expo-sqlite` (SQLite, WAL) | Local-only; no backend |
-| Icons | `expo-symbols` (SF Symbols) | iOS-first |
-| Haptics / blur | `expo-haptics`, `expo-blur` | Used sparingly, see `DESIGN.md` |
-| Tests | Jest 30 + `jest-expo` | Pure logic tested; no snapshot soup |
-| CI | GitHub Actions | typecheck → lint → test → iOS bundle |
+| Navigation | Expo Router 58, stack per tab | Verify `NativeTabs` on web in PR 2; fall back to JS `Tabs` |
+| Storage | `expo-sqlite` web (wa-sqlite WASM, OPFS `AccessHandlePoolVFS`, in a worker) | Requires cross-origin isolation — see below |
+| Offline | Service worker precaching the exported app shell | Added in PR 2 |
+| Icons | Open-licence web icon set (chosen in PR 2) | SF Symbols are licensed for Apple platforms only |
+| Tests | Jest 30 + `jest-expo` (unit, integration); Playwright WebKit (E2E) | Playwright runs on Linux CI with an iPhone viewport |
+| CI | GitHub Actions | typecheck → lint → test → web export → E2E |
+| Hosting | Static host that sets custom headers (EAS Hosting or Cloudflare Pages) | GitHub Pages cannot set COOP/COEP |
 
-No network calls, no analytics SDK, no crash reporter. That is a product decision,
-not a temporary state: the data is the user's and it does not leave the device.
+No network calls after the app shell loads, no analytics SDK, no crash reporter.
+That is a product decision, not a temporary state: the data is the user's and it
+does not leave the device.
+
+## SQLite on the web
+
+`expo-sqlite` on web needs `SharedArrayBuffer`, which only exists when the page
+is **cross-origin isolated**. Source of truth:
+`node_modules/expo-sqlite/skills/expo-sqlite/references/web-and-config.md`.
+
+- (PR 2) `metro.config.js` adds `wasm` to `assetExts` and sends COOP/COEP headers from
+  the dev server.
+- The production host must send `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp` on every path. Expo's docs use
+  `credentialless`, but Safari is not known to support it; Paisa loads no
+  third-party resources, so `require-corp` is safe. The dev server in
+  `metro.config.js` uses the same value.
+- The origin is permanent. OPFS data and passkeys are bound to it, so the app
+  lives on one custom domain chosen in PR 2 and never moves.
+- `withExclusiveTransactionAsync()` and a custom database `directory` are not
+  supported on web. Migrations already use `withTransactionAsync`.
+- Storage: Safari keeps home-screen web apps' storage separate from Safari's
+  and exempts them from the 7-day script-storage cap. Persistence is still
+  best-effort, so the app calls `navigator.storage.persist()` and backups (F-07)
+  are a core feature, not an extra.
+- **Removing the home-screen icon deletes all data.** Say so in onboarding and in
+  Settings, next to the backup button.
 
 ## Directory layout
 
@@ -23,7 +70,7 @@ src/
   app/                    # routes only — every file here is a screen
     _layout.tsx           # providers: theme, SQLite, root stack
     (tabs)/
-      _layout.tsx         # native tab bar
+      _layout.tsx         # tab bar
       (home)/             # each tab owns its own stack
       (activity)/
       (budgets)/
@@ -33,9 +80,11 @@ src/
     ui/                   # design-system primitives
   db/
     migrate.ts            # append-only migrations
-    repositories/         # (PR 2) typed query modules, one per aggregate
+    repositories/         # (PR 3) typed query modules, one per aggregate
   lib/                    # pure functions: money, dates, parsing, csv
   theme/                  # tokens + ThemeProvider
+e2e/                      # (PR 2) Playwright specs, WebKit + iPhone viewport
+public/                   # (PR 2) manifest, icons, service worker, _headers
 docs/                     # this folder — the project's memory
 ```
 
@@ -95,10 +144,9 @@ finish.
 
 ## Identifiers
 
-Primary keys are `TEXT` UUIDs (generated with `expo-crypto.randomUUID()`), not
-autoincrement integers. Rationale: a future sync feature cannot merge two
-devices' integer sequences, and changing primary keys later is a migration
-nightmare. The cost today is a few bytes per row.
+Primary keys are `TEXT` UUIDs (generated with `crypto.randomUUID()`), not autoincrement integers. Rationale: restoring or merging a
+backup cannot collide with existing rows, and changing primary keys later is a
+migration nightmare. The cost is a few bytes per row.
 
 ## Data flow
 
@@ -129,7 +177,8 @@ Screen  →  hook  →  repository  →  expo-sqlite
 
 | Target | Budget |
 | --- | --- |
-| Cold start to first screen | < 1.5 s on iPhone 12 |
+| Cold start to first screen (installed PWA, offline) | < 2 s on iPhone 12 |
+| App shell download (first install) | < 1.5 MB gzipped, WASM included — a target to confirm in PR 2 |
 | Add-expense flow | < 300 ms from tap to saved |
 | Activity list scroll | 60 fps at 5,000 rows |
 | Home summary query | < 30 ms |
@@ -138,8 +187,14 @@ If a query exceeds its budget, add an index before adding a cache.
 
 ## Known constraints
 
-- **SQLCipher is unavailable in Expo Go.** Encryption (PR 10) requires a
-  development build. Until then, the database is unencrypted on disk.
-- **`expo-symbols` is iOS-only.** Other platforms get a glyph fallback.
-- **No background execution.** Recurring transactions materialise on app open,
-  not via a scheduler.
+- **No SQLCipher on the web.** The database is not encrypted by the app. iOS
+  encrypts app storage while the phone is locked; the app lock (F-18) covers an
+  unlocked phone. Encryption at rest is research only.
+- **No background execution.** Recurring transactions materialise on app open.
+  Web push would need a server, which is a non-goal.
+- **Separate storage per context.** The home-screen app and Safari do not share
+  storage. Links (Shortcuts, other apps) open in Safari, so deep-link quick add
+  is not possible.
+- **Deploys are code updates.** A new deploy reaches the phone through the
+  service worker. Migrations must stay append-only and run against whatever
+  version the device last had.

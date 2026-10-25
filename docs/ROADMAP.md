@@ -1,108 +1,136 @@
 # Roadmap
 
 One feature per pull request. Each PR is independently reviewable, independently
-revertable, and leaves `main` shippable.
+revertable, and leaves `main` shippable. Roadmap numbers are plan slots, not
+GitHub PR numbers.
 
 Status legend: `[x]` merged · `[~]` in review · `[ ]` not started.
 
-## PR 1 — Foundation 🚧
+## PR 1 — Foundation ✅
 
-- [~] Expo SDK 58 + React Native 0.88 + TypeScript strict
-- [~] Expo Router (native stack per tab, native `UITabBar`)
-- [~] iOS design system (`src/theme`, grouped-list primitives)
-- [~] SQLite + append-only migration runner (`src/db/migrate.ts`)
-- [~] Money module with integer-paise invariant + tests
-- [~] CI (typecheck, lint, test, iOS bundle), PR template, docs
+- [x] Expo SDK 58 + React Native 0.88 + TypeScript strict
+- [x] Expo Router, tab layout, per-tab stacks
+- [x] Design system (`src/theme`, grouped-list primitives)
+- [x] SQLite + append-only migration runner (`src/db/migrate.ts`)
+- [x] Money module with integer-paise invariant + tests
+- [x] CI (typecheck, lint, test, bundle), PR template, docs
 
-**Out of scope:** any actual expense data. The app intentionally shows honest
-empty states until PR 2.
+## PR 2 — Web platform (PWA shell)
 
-## PR 2 — Core ledger 🚧
+Moves the target from Expo Go to an installable web app. See
+[ARCHITECTURE.md#platform-decision](ARCHITECTURE.md#platform-decision). This is
+partly a spike: if an exit criterion fails, stop and report before PR 3.
 
-Implements **F-01, F-05** and the account/category schema groundwork for F-02.
+- Metro bundles `.wasm`; dev server sends COOP/COEP headers (`metro.config.js`)
+- Static export (`npx expo export --platform web`) deployed to a host that sets
+  custom headers (EAS Hosting or Cloudflare Pages — not GitHub Pages), on a
+  permanent custom domain, with a preview environment for review before promotion
+- Security headers and CSP from SECURITY.md on every path
+- Web app manifest, `apple-touch-icon`, standalone display, theme colours
+- Service worker that precaches the app shell so a cold start works offline
+- `navigator.storage.persist()` requested on first launch
+- Web icon set to replace SF Symbols (not licensed for the web)
+- Tab bar that works on web (verify `NativeTabs`; fall back to JS `Tabs`)
+- Playwright (WebKit, iPhone viewport) E2E smoke test in CI; CI exports web
+  instead of iOS
+- Fix copy that overclaims on Home ("Two taps", "UPI-ready") and hardcoded
+  spacing in `src/app/(tabs)/(home)/index.tsx`; replace the Settings footer
+  about "encryption and Face ID" with the app-lock and backup reality
 
-- `accounts`, `categories`, `transactions` tables + seed data
-- Add expense: amount-first sheet, category picker, date, note
-- Edit and delete with confirmation
-- Activity list grouped by day, running day totals
-- Home month summary (spent, count, average)
+**Exit criteria (on a real iPhone, installed to the home screen):**
+1. `crossOriginIsolated === true` and `SharedArrayBuffer` exists — online, and
+   again on an offline cold start served from the service-worker cache.
+2. A row written to SQLite survives closing the app and a phone restart.
+3. Cold start works in Airplane Mode.
+4. Data is still present after 8+ days without opening the app (tracked after
+   merge; blocks PR 5).
+
+**Fallback:** if OPFS persistence fails, evaluate an IndexedDB-backed SQLite VFS
+before writing any feature.
+
+## PR 3 — Core ledger
+
+**F-01, F-05.** `accounts` (seeded "Bank" and "Cash"), `categories`,
+`transactions` tables; amount-first add sheet; edit and delete; activity list
+grouped by day; home month summary. Also: the shared `ConfirmSheet` component
+and the `node:sqlite` test adapter for integration tests.
 
 **Acceptance:** add → appears in activity and home totals without a reload;
 editing recalculates both; deleting removes it; all queries parameterised.
 
-## PR 3 — Accounts
+## PR 4 — Backup and export
 
-**F-02.** Account CRUD, per-account balances, account filter, transfer between
-accounts. Balances derive from transactions, never stored as a mutable column.
+**F-07 (export + restore).** JSON backup of the whole database (optional
+passphrase encryption via WebCrypto) and CSV export,
+saved through the share sheet / Files. Restore from a backup file with a dry-run
+summary. A gentle "last backup N days ago" reminder on Home. Moved early because
+removing the home-screen app deletes its data.
 
-## PR 4 — Budgets
+## PR 5 — Bank statement import
 
-**F-04, F-13.** Monthly per-category budgets, progress bars, safe-to-spend
-headline, overspend warnings. Budget periods are month-based, calculated from
-`occurred_on` local dates.
+**F-24 (CSV/XLS), F-26, F-07 (CSV import).** File picker, per-bank column
+mapping, dry-run preview, duplicate detection, UPI merchant cleanup. Imported
+rows go to a pending state.
 
-## PR 5 — Natural-language quick add
+## PR 6 — Review inbox and rules
+
+**F-10, F-11.** Queue of pending imported rows, swipe/tap to categorise, "always
+do this" creates a rule; rule management screen.
+
+## PR 7 — Natural-language quick add
 
 **F-08.** Parser for `amount [merchant] [date] [tag]`. Pure function with a large
 test table; no AI call. Falls back to the manual form when confidence is low.
 
-## PR 6 — Insights
+## PR 8 — Accounts
 
-**F-14, F-15.** Month-over-month deltas, category trend, projection for month
-end, calendar heatmap. Charts render from SQL aggregates, not full row scans.
+**F-02.** Account CRUD, per-account balances (derived, never stored), account
+filter, transfers.
 
-## PR 7 — Search & filters
+## PR 9 — Budgets
 
-**F-06.** Full-text-ish search over note/merchant, filters by date range,
-category, account, amount. FTS5 index if profiling shows a need.
+**F-04, F-13.** Monthly per-category budgets, progress bars, safe-to-spend
+headline, overspend warnings.
 
-## PR 8 — CSV import / export
+## PR 10 — Recurring and subscriptions
 
-**F-07.** Export with formula-injection protection. Import with a column-mapping
-step, dry-run preview, and duplicate detection.
+**F-03, F-12.** Recurring rules materialised on app open; subscription detection
+over imported history; price-hike flags.
 
-## PR 9 — Recurring & subscriptions
+## PR 11 — Insights
 
-**F-03, F-12.** Recurring rules with next-run date, materialise on app open,
-subscription detection heuristics, price-hike alerts.
+**F-14, F-15.** Month-over-month deltas, projected month-end, calendar heatmap.
+Charts render from SQL aggregates.
 
-## PR 10 — Face ID + encryption
+## PR 12 — Search and edit history
 
-**F-18.** `expo-local-authentication` gate on launch/background, SQLCipher via
-`expo-sqlite` config plugin. **Requires a development build** — SQLCipher is not
-available in Expo Go. This is the point where we move off Expo Go for daily use.
+**F-06.** Search over note/merchant, filters, soft delete with Undo.
 
-## PR 11 — Receipt OCR
+## PR 13 — App lock
 
-**F-09.** Camera capture, OCR, merchant/amount/date extraction, attach image to
-transaction.
+**F-18.** Passkey (WebAuthn, platform authenticator) on launch and on resume
+after 60 s; blur the UI when the app is backgrounded.
 
-## PR 12 — Smart inbox & rules
+## PR 14 — PDF statement import (spike)
 
-**F-10, F-11.** Review queue, accept/reject, rule engine ("merchant contains X →
-category Y"), rule management UI.
-
-## PR 13 — Widget & share sheet
-
-**F-17.** iOS widget for quick add, share-sheet extension. Needs a development
-build and an App Group shared container.
-
-## PR 14 — India import
-
-**F-24, F-26.** UPI/GPay/PhonePe statement parsing, merchant normalisation, bulk
-review through the smart inbox.
+**F-24 (PDF).** PhonePe/Paytm PDF statements. Starts as a time-boxed spike: if
+text extraction in the browser is unreliable, record the result and drop it.
 
 ## Later / unscheduled
 
-F-16 (sync), F-19 (split), F-20 (goals/net worth), F-21 (AI narrative),
-F-22 (what-if), F-23 (gamification), F-25 (SMS parsing).
+F-20 (goals/net worth), F-19 (local trip ledger), F-21 (template narrative),
+F-22 (what-if), F-23 (gamification), encryption at rest (WebAuthn PRF-derived
+key — research only).
+
+Cut: F-09, F-16, F-17, F-25 — see [FEATURES.md](FEATURES.md#e-cut-features).
 
 ## Sequencing rationale
 
-1. **Ledger before analytics.** Charts over missing data are decoration.
-2. **Local before sync.** Sync multiplies every bug; prove the model offline.
-3. **Rules before ML.** Deterministic and debuggable. ML only if rules fail.
-4. **Encryption before OCR.** Once receipt photos exist, the blast radius of an
-   unencrypted database grows a lot.
-5. **Import last.** It is the highest-leverage feature but needs the review queue
-   and rules to be usable.
+1. **Platform before features.** If SQLite-in-the-browser does not persist on
+   iOS, every feature built on it is wasted.
+2. **Ledger, then backup.** The first real data must be exportable before more of
+   it arrives.
+3. **Import before polish.** With ~90% UPI spend, import is the app; quick add,
+   budgets, and insights are only as good as the data under them.
+4. **Rules before ML.** Deterministic and debuggable.
+5. **Local before sync.** And in this product, local only.

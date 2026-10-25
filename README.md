@@ -1,42 +1,42 @@
 # Paisa
 
 A private, offline-first expense tracker for iPhone. Rupees in, rupees out — no
-account, no cloud, no ads. Everything lives in SQLite on the device.
+account, no cloud, no ads. It installs from Safari to the home screen as a web
+app (PWA), and everything lives in SQLite on the device.
 
-> **Status: early.** PR 1 (foundation) is merged: native navigation shell, iOS
-> design system, database + migrations, CI, and documentation. The ledger itself
-> lands in PR 2. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: early.** PR 1 (foundation) is merged. Next is PR 2, which turns the
+> app into an installable PWA. See [docs/ROADMAP.md](docs/ROADMAP.md), and
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#platform-decision) for why it is a
+> web app rather than a native one.
 
-## Run it on your iPhone
+## Run it
 
-No Apple Developer account needed — Expo Go handles it.
+Until PR 2, development runs in **Expo Go** (the web build needs PR 2's
+`metro.config.js` for SQLite):
 
-1. Install **Expo Go** from the App Store on your iPhone.
-2. On your Mac:
+```bash
+npm install
+npx expo start
+```
 
-   ```bash
-   npm install
-   npx expo start
-   ```
+Scan the QR code with the iPhone camera and open it in Expo Go. From PR 2,
+`npx expo start --web` and Safari replace this.
 
-3. Make sure the phone and Mac are on the same Wi-Fi, then scan the QR code with
-   the iPhone camera and open it in Expo Go.
-
-If your network blocks local connections, use `npx expo start --tunnel`.
-
-iOS Simulator instead: `npx expo start --ios`.
+On the iPhone (from PR 2): open the deployed URL in Safari, tap **Share → Add to
+Home Screen**, and launch Paisa from the home-screen icon. Removing that icon
+deletes the app's data, so keep a backup (PR 4).
 
 ## Commands
 
 | Command | Purpose |
 | --- | --- |
 | `npm start` | Start the dev server |
-| `npm run ios` | Open in the iOS Simulator |
+| `npm run web` | Start the dev server for the browser |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint (flat config) |
 | `npm test` | Jest |
 | `npm run verify` | Typecheck + lint + tests (run before every push) |
-| `npx expo export --platform ios --output-dir /tmp/paisa-export` | Bundle smoke test |
+| `npx expo export --platform web --output-dir /tmp/paisa-web` | Bundle smoke test |
 
 Always install packages with `npx expo install <pkg>` so versions match SDK 58.
 
@@ -65,12 +65,14 @@ docs/           the project's memory; read these before changing code
 
 ## Stack
 
-Expo SDK 58 · React Native 0.88 · React 19 · TypeScript (strict) · Expo Router ·
-expo-sqlite · Jest · GitHub Actions.
+Expo SDK 58 · React Native 0.88 + react-native-web · React 19 · TypeScript
+(strict) · Expo Router · expo-sqlite (WASM, OPFS) · Jest · Playwright ·
+GitHub Actions.
 
 ## Contributing
 
-Feature branches only, one feature per PR, second-agent review required. See
+Feature branches only, one feature per PR, tests first, and three review agents
+(test, security, pen-test — see `.claude/agents/`) before merge. See
 [docs/WORKFLOW.md](docs/WORKFLOW.md).
 
 ## Licence
