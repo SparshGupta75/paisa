@@ -1,41 +1,76 @@
-This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
+# AGENTS.md
+
+Operating instructions for AI agents working in this repo.
+
+## 60-second brief
+
+Paisa is a local-only iPhone expense tracker (Expo SDK 58, React Native 0.88,
+TypeScript strict, expo-sqlite). Money is **integer paise**. Dates use
+`occurred_on` as a local `YYYY-MM-DD` string. No backend, no telemetry. iOS-native
+UI only. One feature per PR, second-agent review required before merge.
+
+## Read docs instead of re-deriving them
+
+Do not explore the repo to reconstruct intent. Read the doc for the task:
+
+| Task | Doc |
+| --- | --- |
+| What to build / whether it is in scope | `docs/FEATURES.md` |
+| What is next / PR numbering | `docs/ROADMAP.md` |
+| Schema, money, dates, migrations, folders | `docs/ARCHITECTURE.md` |
+| Any UI, styling, component, or copy | `docs/DESIGN.md` |
+| Dependency, SQL, import/export, logging | `docs/SECURITY.md` |
+| Branch, commit, PR, review protocol | `docs/WORKFLOW.md` |
+
+Update `docs/FEATURES.md` and `docs/ROADMAP.md` in the same PR that changes
+behaviour. Stale docs are treated as bugs.
 
 ## Expo has changed — do not trust your training data
 
-Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:
+Expo ships breaking changes every SDK release. APIs you remember are likely
+renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or
+React Native API:
 
 1. Read the major version of the `expo` package in `package.json`.
 2. Fetch the matching versioned docs: `https://docs.expo.dev/versions/v<major>.0.0/`
-3. For anything else, fetch https://docs.expo.dev/llms.txt — an index of all Expo docs with corrections to common LLM misconceptions. Follow its links to the specific page you need; never answer from memory.
+3. For anything else, fetch `https://docs.expo.dev/llms.txt`.
+4. When the installed package is ambiguous, read its `.d.ts` in `node_modules` —
+   that is ground truth for this exact version.
 
 ## Commands
 
-Use `bunx` instead of `npx` if the project uses bun (`bun.lock` present).
-
 ```bash
-npx expo install <package>  # ALWAYS use instead of npm/yarn/pnpm/bun add — resolves SDK-compatible versions
-npx expo start              # start the dev server
-npx expo lint               # lint
-npx tsc --noEmit            # typecheck
-npx expo-doctor             # diagnose dependency and config issues
-npx expo install --fix      # fix incompatible package versions
+npx expo install <package>   # ALWAYS, instead of npm install for Expo modules
+npm run verify               # typecheck + lint + test — run before declaring done
+npx expo start --ios         # simulator
+npx expo export --platform ios --output-dir /tmp/paisa-export   # bundle smoke test
 ```
 
-Run lint and typecheck before declaring any task done.
+Run `npm run verify` before claiming any task is complete. If you cannot run the
+simulator, say so explicitly rather than implying visual verification.
 
-## Navigation & Routing
+## Hard rules
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+1. Routes in `src/app` contain no business logic; screens compose hooks and
+   components.
+2. All SQL lives in `src/db`. Parameterised statements only. No string
+   interpolation except integer-validated `PRAGMA user_version` in migrations.
+3. Money is never a float, never a string, once inside the domain. Use
+   `src/lib/money.ts` at the boundaries.
+4. Never edit or reorder a shipped migration. Append a new one.
+5. No hardcoded colours, font sizes, or spacing in components — use `useTheme()`.
+6. Never `console.log` amounts, notes, merchant names, or account names.
+7. Do not add a dependency without a stated reason in the PR description.
+8. Do not create or edit `ios/` or `android/` — configure native behaviour in
+   `app.json` and config plugins (CNG).
+9. Do not run `npm audit fix --force`; it downgrades Expo to SDK 44. See
+   `docs/SECURITY.md#accepted-risks`.
+10. One feature per PR. Do not sneak refactors into a feature branch.
 
-## Building with EAS
+## Token discipline
 
-Use EAS to build, sign, and submit the app in the cloud (`eas build`, `eas submit`) and to ship over-the-air updates (`eas update`) — no local Xcode or Android Studio required. Run EAS CLI as `bunx eas-cli <command>` in Bun projects, or `npx eas-cli@latest <command>` otherwise; substitute that for bare `eas` in docs examples.
-Docs: https://docs.expo.dev/eas/index.md
-
-## Rules
-
-- If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
-- Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+- Prefer reading the specific doc section over grepping the whole codebase.
+- Prefer the installed `.d.ts` over fetching a docs page, when one exists.
+- Do not restate the docs in your response; link to the file and line.
+- When something is ambiguous, ask one focused question instead of guessing and
+  rewriting afterwards.
