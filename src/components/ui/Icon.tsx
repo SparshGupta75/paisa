@@ -1,35 +1,47 @@
-import { SymbolView } from 'expo-symbols';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ComponentProps } from 'react';
-import { Platform, Text } from 'react-native';
 
-type SymbolName = ComponentProps<typeof SymbolView>['name'];
+type Glyph = ComponentProps<typeof Ionicons>['name'];
+
+/**
+ * Semantic icon names. Screens ask for what an icon means, not which glyph
+ * draws it, so the icon set can change in one place. Ionicons (MIT) replaces
+ * SF Symbols, which Apple licenses for its own platforms only — see
+ * docs/DESIGN.md#non-negotiables.
+ */
+const GLYPHS = {
+  home: 'home',
+  activity: 'list',
+  budgets: 'pie-chart',
+  settings: 'settings',
+  wallet: 'wallet',
+  lock: 'lock-closed',
+  bolt: 'flash',
+  cash: 'cash-outline',
+  tray: 'file-tray-outline',
+  list: 'list',
+  pie: 'pie-chart-outline',
+  'chevron-right': 'chevron-forward',
+} as const satisfies Record<string, Glyph>;
+
+export type IconName = keyof typeof GLYPHS;
 
 export interface IconProps {
-  name: SymbolName;
+  name: IconName;
   size?: number;
   color: string;
 }
 
-/**
- * SF Symbols wrapper.
- *
- * iOS renders the real system symbol, which is what makes the app feel native.
- * Android/web get a neutral glyph fallback — Paisa is iOS-first (see
- * docs/DESIGN.md#platform), so we do not ship a full icon set for them yet.
- */
 export function Icon({ name, size = 22, color }: IconProps) {
-  if (Platform.OS !== 'ios') {
-    // Decorative fallback: hide from assistive tech so it is not read as "•".
-    return (
-      <Text
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-        style={{ fontSize: size * 0.8, color, lineHeight: size }}
-      >
-        •
-      </Text>
-    );
-  }
-
-  return <SymbolView name={name} size={size} tintColor={color} resizeMode="scaleAspectFit" />;
+  // Decorative: the surrounding control carries the accessible label.
+  return (
+    <Ionicons
+      name={GLYPHS[name]}
+      size={size}
+      color={color}
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      aria-hidden
+    />
+  );
 }

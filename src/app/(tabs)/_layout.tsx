@@ -1,35 +1,50 @@
-import { NativeTabs } from 'expo-router/native-tabs';
+import { Tabs } from 'expo-router/js-tabs';
 
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/theme/ThemeProvider';
 
+// Tab directories sort alphabetically; without this the app opens on Activity.
+export const unstable_settings = { initialRouteName: '(home)' };
+
+const TABS: { name: string; title: string; icon: IconName }[] = [
+  { name: '(home)', title: 'Home', icon: 'home' },
+  { name: '(activity)', title: 'Activity', icon: 'activity' },
+  { name: '(budgets)', title: 'Budgets', icon: 'budgets' },
+  { name: '(settings)', title: 'Settings', icon: 'settings' },
+];
+
 /**
- * Native `UITabBar` (iOS 26 renders the system floating tab bar). Each tab is a
- * directory route so it owns its own navigation stack — see TabStack.
+ * Bottom tab bar styled like iOS. The JS tab navigator, not `NativeTabs`:
+ * on the web `NativeTabs` renders a floating pill at the top of the screen.
+ * Each tab is a directory route so it owns its own stack — see TabStack.
  */
 export default function TabsLayout() {
-  const { colors } = useTheme();
+  const { colors, typography } = useTheme();
 
   return (
-    <NativeTabs tintColor={colors.accent} iconColor={colors.secondaryLabel}>
-      <NativeTabs.Trigger name="(home)">
-        <NativeTabs.Trigger.Icon sf="house.fill" />
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="(activity)">
-        <NativeTabs.Trigger.Icon sf="list.bullet" />
-        <NativeTabs.Trigger.Label>Activity</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="(budgets)">
-        <NativeTabs.Trigger.Icon sf="chart.pie.fill" />
-        <NativeTabs.Trigger.Label>Budgets</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-
-      <NativeTabs.Trigger name="(settings)">
-        <NativeTabs.Trigger.Icon sf="gearshape.fill" />
-        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
-    </NativeTabs>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.secondaryLabel,
+        tabBarStyle: {
+          backgroundColor: colors.elevated,
+          borderTopColor: colors.separator,
+        },
+        tabBarLabelStyle: { ...typography.caption, fontWeight: '500' },
+      }}
+    >
+      {TABS.map(({ name, title, icon }) => (
+        <Tabs.Screen
+          key={name}
+          name={name}
+          options={{
+            title,
+            tabBarAccessibilityLabel: title,
+            tabBarIcon: ({ color }) => <Icon name={icon} size={24} color={String(color)} />,
+          }}
+        />
+      ))}
+    </Tabs>
   );
 }

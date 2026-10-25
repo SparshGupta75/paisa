@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { SECURITY_HEADERS } = require('../scripts/web/headers');
@@ -10,7 +10,8 @@ test.describe('PWA shell', () => {
   test('serves every response with the production security headers', async ({ page }) => {
     const seen: { url: string; headers: Record<string, string> }[] = [];
     page.on('response', (response) => {
-      if (new URL(response.url()).origin === ORIGIN) {
+      // blob: URLs report our origin but carry no HTTP headers.
+      if (response.url().startsWith(`${ORIGIN}/`)) {
         seen.push({ url: response.url(), headers: response.headers() });
       }
     });
@@ -63,6 +64,33 @@ test.describe('PWA shell', () => {
 
     await tabBar.getByRole('tab', { name: 'Settings' }).click();
     await expect(page.getByText('Stored on this device')).toBeVisible();
+  });
+
+  test('opens on the Home tab, and every tab has its own URL', async ({ page }) => {
+    await page.goto('/');
+    const tabBar = page.getByRole('tablist');
+    await expect(tabBar.getByRole('tab', { name: 'Home' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByText('Welcome to Paisa')).toBeVisible();
+
+    const paths = new Set<string>();
+    for (const name of TABS) {
+      await tabBar.getByRole('tab', { name }).click();
+      await expect(tabBar.getByRole('tab', { name })).toHaveAttribute('aria-selected', 'true');
+      paths.add(new URL(page.url()).pathname);
+    }
+    expect(paths.size).toBe(TABS.length);
+  });
+
+  test('tab labels are fully visible, not clipped', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('tablist')).toBeVisible();
+    const clipped = await page.evaluate(() =>
+      [...document.querySelectorAll('[role="tab"] *')]
+        .filter((el) => el.children.length === 0 && (el.textContent ?? '').trim() !== '')
+        .filter((el) => el.scrollHeight > el.clientHeight + 1)
+        .map((el) => el.textContent),
+    );
+    expect(clipped).toEqual([]);
   });
 
   test('links a manifest that installs as a standalone app', async ({ page, request }) => {
