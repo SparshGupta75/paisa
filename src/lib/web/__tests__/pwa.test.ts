@@ -89,7 +89,7 @@ function emitter<T extends object>(props: T) {
 describe('watchForUpdate', () => {
   it('reports an update that is already waiting', () => {
     const onReady = jest.fn();
-    watchForUpdate(emitter({ waiting: {}, installing: null }), { hasController: true }, onReady);
+    watchForUpdate(emitter({ waiting: {}, installing: null }), { hasController: () => true }, onReady);
     expect(onReady).toHaveBeenCalledTimes(1);
   });
 
@@ -97,7 +97,7 @@ describe('watchForUpdate', () => {
     const onReady = jest.fn();
     const installing = emitter({ state: 'installing' });
     const registration = emitter({ waiting: null as object | null, installing: null as object | null });
-    watchForUpdate(registration, { hasController: true }, onReady);
+    watchForUpdate(registration, { hasController: () => true }, onReady);
 
     registration.installing = installing;
     registration.emit('updatefound');
@@ -111,10 +111,32 @@ describe('watchForUpdate', () => {
     const onReady = jest.fn();
     const installing = emitter({ state: 'installed' });
     const registration = emitter({ waiting: null, installing });
-    watchForUpdate(registration, { hasController: false }, onReady);
+    watchForUpdate(registration, { hasController: () => false }, onReady);
     registration.emit('updatefound');
     installing.emit('statechange');
     expect(onReady).not.toHaveBeenCalled();
+  });
+
+  it('still reports a later update in the session that did the first install', () => {
+    const onReady = jest.fn();
+    let controlled = false;
+    const registration = emitter({ waiting: null as object | null, installing: null as object | null });
+    watchForUpdate(registration, { hasController: () => controlled }, onReady);
+
+    // First install: claims the page, nothing to replace.
+    const first = emitter({ state: 'installed' });
+    registration.installing = first;
+    registration.emit('updatefound');
+    first.emit('statechange');
+    expect(onReady).not.toHaveBeenCalled();
+    controlled = true;
+
+    // A second deploy lands while the app is still open.
+    const second = emitter({ state: 'installed' });
+    registration.installing = second;
+    registration.emit('updatefound');
+    second.emit('statechange');
+    expect(onReady).toHaveBeenCalledTimes(1);
   });
 });
 
