@@ -34,6 +34,10 @@ describe('CSP', () => {
     expect(scriptSrc).not.toContain("'unsafe-inline'");
   });
 
+  it('loads fonts only from our origin (Ionicons ships as a .ttf file)', () => {
+    expect(csp.get('font-src')).toEqual(["'self'"]);
+  });
+
   it('allows the blob: worker Metro creates for SQLite under cross-origin isolation', () => {
     expect(csp.get('worker-src')).toEqual(["'self'", 'blob:']);
   });
@@ -94,7 +98,18 @@ describe('toHeadersFile', () => {
     }
   });
 
-  it('marks the service worker no-cache', () => {
+  it('marks the service worker and HTML shell no-cache', () => {
     expect(file).toMatch(/^\/sw\.js\n {2}Cache-Control: no-cache$/m);
+    expect(file).toMatch(/^\/index\.html\n {2}Cache-Control: no-cache$/m);
+    expect(file).toMatch(/^\/\n {2}Cache-Control: no-cache$/m);
+  });
+
+  // Cloudflare Pages and Netlify merge every matching rule; a header set by two
+  // rules becomes "no-cache, public, max-age=...". So no path may match two
+  // rules that both set Cache-Control.
+  it('never sets Cache-Control in the catch-all rule', () => {
+    const catchAll = file.split(/\n(?=\S)/)[0] ?? '';
+    expect(catchAll.startsWith('/*')).toBe(true);
+    expect(catchAll).not.toContain('Cache-Control');
   });
 });

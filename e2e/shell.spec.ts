@@ -120,11 +120,26 @@ test.describe('PWA shell', () => {
       .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null))
       .toBe(true);
 
+    const failed: string[] = [];
+    page.on('requestfailed', (req) => failed.push(req.url()));
+
     await context.setOffline(true);
     await page.reload();
     await expect(page.getByText('Welcome to Paisa')).toBeVisible();
     const isolated = await page.evaluate(() => globalThis.crossOriginIsolated);
     expect(isolated).toBe(true);
+
+    // Everything the shell needs, including the icon font, came from the cache.
+    await page.evaluate(() => document.fonts.ready);
+    const fontErrors = await page.evaluate(() =>
+      [...document.fonts].filter((font) => font.status === 'error').map((font) => font.family),
+    );
+    expect(fontErrors).toEqual([]);
+    expect(failed).toEqual([]);
+
+    // A cold offline open of a deep link also gets the shell.
+    await page.goto('/settings');
+    await expect(page.getByText('Stored on this device')).toBeVisible();
   });
 
   test('loads nothing from another origin', async ({ page }) => {

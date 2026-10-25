@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildServiceWorker, computeVersion, listPrecacheFiles } = require('../precache');
@@ -52,6 +53,26 @@ describe('listPrecacheFiles', () => {
     const files: string[] = listPrecacheFiles(makeDist({ 'assets/a b#c.png': 'x' }));
     expect(files).toEqual(['/assets/a%20b%23c.png']);
   });
+
+  // The Cache API matches URLs exactly. If we encode a character the browser
+  // leaves alone (like @ in node_modules/@expo), the cached copy never matches.
+  it('encodes paths exactly as the browser does, so cache keys match requests', () => {
+    const names = [
+      'assets/node_modules/@expo/vector-icons/Ionicons.abc.ttf',
+      'assets/clear-icon@2x.png',
+      'assets/a b#c.png',
+      'assets/100%.png',
+      'assets/q?.js',
+      'assets/ü.png',
+      "assets/it's(1)~!*.png",
+    ];
+    const files: string[] = listPrecacheFiles(makeDist(Object.fromEntries(names.map((n) => [n, 'x']))));
+    expect(files).toContain('/assets/node_modules/@expo/vector-icons/Ionicons.abc.ttf');
+    expect(files).toContain('/assets/clear-icon@2x.png');
+    for (const url of files) {
+      expect(new URL(url, 'https://paisa.test').pathname).toBe(url);
+    }
+  });
 });
 
 describe('computeVersion', () => {
@@ -63,6 +84,17 @@ describe('computeVersion', () => {
     expect(computeVersion(a, files)).toBe(computeVersion(b, files));
     expect(computeVersion(a, files)).not.toBe(computeVersion(c, files));
     expect(computeVersion(a, files)).toMatch(/^[0-9a-f]{12}$/);
+  });
+
+  it('reads back files whose names needed encoding', () => {
+    const dist = makeDist({ 'assets/a b#c.png': 'x', 'assets/100%.png': 'y', 'assets/@x/y@2x.png': 'z' });
+    expect(() => computeVersion(dist, listPrecacheFiles(dist))).not.toThrow();
+  });
+
+  it('changes when a file is renamed but its content is not', () => {
+    const a = makeDist({ 'index.html': 'same', 'a.js': 'same' });
+    const b = makeDist({ 'index.html': 'same', 'b.js': 'same' });
+    expect(computeVersion(a, listPrecacheFiles(a))).not.toBe(computeVersion(b, listPrecacheFiles(b)));
   });
 });
 
@@ -85,5 +117,18 @@ describe('buildServiceWorker', () => {
   it('rejects precache entries that are not same-origin absolute paths', () => {
     expect(() => buildServiceWorker({ version: 'abc123def456', files: ['https://evil.test/x.js'] })).toThrow();
     expect(() => buildServiceWorker({ version: 'abc123def456', files: ['//evil.test/x.js'] })).toThrow();
+    // Browsers treat \ as / and drop tabs, so both of these resolve to evil.test.
+    expect(() => buildServiceWorker({ version: 'abc123def456', files: ['/\\evil.test/x.js'] })).toThrow();
+    expect(() => buildServiceWorker({ version: 'abc123def456', files: ['/\t/evil.test/x.js'] })).toThrow();
+  });
+
+  it('rejects a version that only looks like hex after toString()', () => {
+    expect(() => buildServiceWorker({ version: ['abc123def456'], files: [] })).toThrow();
+  });
+
+  it('embeds entries literally, without expanding $ replacement patterns', () => {
+    const worker: string = buildServiceWorker({ version: 'abc123def456', files: ["/$&", "/$'", '/$`'] });
+    expect(() => new vm.Script(worker)).not.toThrow();
+    expect(worker).toContain('const PRECACHE = ["/$&","/$\'","/$`"];');
   });
 });
