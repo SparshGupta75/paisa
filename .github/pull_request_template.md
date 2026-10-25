@@ -18,12 +18,15 @@
 
 ## Verification
 
-- [ ] `npm run verify` passes
-- [ ] `npx expo export --platform ios` succeeds
-- [ ] Manually tested on iOS Simulator
+- [ ] Tests committed before the implementation (TDD)
+- [ ] `npm run verify` passes (unit + integration)
+- [ ] E2E (Playwright) passes — from PR 2 onwards
+- [ ] `npx expo export --platform web` succeeds (`ios` until PR 2)
+- [ ] Tested in the installed home-screen app on iPhone (or Simulator Safari)
 - [ ] Light mode
 - [ ] Dark mode
-- [ ] Dynamic Type XL
+- [ ] Cold start in Airplane Mode
+- [ ] 200% text zoom (Safari tab, **aA → 200%**; the home-screen app has no zoom control)
 - [ ] Empty state
 - [ ] Error state
 
@@ -34,11 +37,12 @@
 ## Security checklist (docs/SECURITY.md)
 
 - [ ] No interpolated SQL — all queries parameterised
-- [ ] No new network calls or telemetry
+- [ ] No XSS sinks (`dangerouslySetInnerHTML`, `innerHTML`, `eval`)
+- [ ] No new network calls, telemetry, or third-party origins
 - [ ] No PII (amounts, notes, merchants) in logs
 - [ ] User input validated at the boundary; size caps enforced
 - [ ] Each new dependency justified below
-- [ ] Destructive action confirmed with a native alert
+- [ ] Destructive action confirmed with the shared confirmation sheet
 
 **New dependencies and why:**
 
@@ -47,6 +51,12 @@
 - [ ] `docs/FEATURES.md` status updated
 - [ ] `docs/ROADMAP.md` updated
 - [ ] Architecture/security decision recorded (if one was made)
+
+## Review agents
+
+- [ ] Test reviewer — verdict:
+- [ ] Security reviewer — verdict:
+- [ ] Pen tester — verdict:
 
 ## Reviewer notes
 
