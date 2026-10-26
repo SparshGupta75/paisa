@@ -22,15 +22,23 @@ export interface Txn {
   updatedAt: number;
 }
 
+export interface Setting {
+  key: string;
+  value: unknown;
+}
+
 export const db = new Dexie('paisa') as Dexie & {
   categories: EntityTable<Category, 'id'>;
   txns: EntityTable<Txn, 'id'>;
+  settings: EntityTable<Setting, 'key'>;
 };
 
 db.version(1).stores({
   categories: 'id, order',
   txns: 'id, date, categoryId, createdAt',
 });
+
+db.version(2).stores({ settings: 'key' });
 
 db.on('populate', (tx) => {
   void tx
@@ -40,4 +48,8 @@ db.on('populate', (tx) => {
 
 export function newId(): string {
   return crypto.randomUUID();
+}
+
+export async function setSetting(key: string, value: unknown): Promise<void> {
+  await db.settings.put({ key, value });
 }

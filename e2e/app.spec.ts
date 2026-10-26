@@ -56,3 +56,17 @@ test('edit, delete with undo, and search', async ({ page }) => {
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('masala chai')).toBeVisible();
 });
+
+test('monthly budget drives safe-to-spend', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Set a monthly budget' }).click();
+  await page.getByLabel('Budget amount').fill('31000');
+  await page.getByRole('button', { name: 'Save budget' }).click();
+  await expect(page.getByLabel('Safe to spend today')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await page.getByLabel('Quick add').fill('lunch 250');
+  await page.getByLabel('Quick add').press('Enter');
+  await expect(page.getByText('Top categories')).toBeVisible();
+  await expect(page.getByText(/₹250 of ₹31,000/)).toBeVisible();
+});

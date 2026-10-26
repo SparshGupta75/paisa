@@ -23,3 +23,8 @@ export function useCategoryMap(): Map<string, Category> {
   const categories = useCategories();
   return new Map(categories.map((category) => [category.id, category]));
 }
+
+/** A stored setting, or `fallback` until it loads or when it is unset. */
+export function useSetting<T>(key: string, fallback: T): T {
+  return useLiveQuery(async () => ((await db.settings.get(key))?.value as T | undefined) ?? fallback, [key]) ?? fallback;
+}
