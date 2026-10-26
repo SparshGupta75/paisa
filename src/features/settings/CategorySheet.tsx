@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
-import { db, deleteCategory, newId, type Category } from '../../db';
+import { FALLBACK, db, deleteCategory, newId, type Category } from '../../db';
 import { firstGrapheme } from '../../lib/emoji';
 import { parseAmount } from '../../lib/money';
 
@@ -14,11 +14,14 @@ export function CategorySheet({
   open,
   onClose,
   category,
+  kind,
   nextOrder,
 }: {
   open: boolean;
   onClose: () => void;
   category: Category | null;
+  /** Which side a new category goes on. */
+  kind: 'expense' | 'income';
   nextOrder: number;
 }) {
   const toast = useToast();
@@ -47,9 +50,9 @@ export function CategorySheet({
 
   const save = async () => {
     if (!canSave) return;
-    const fields = { name: name.trim(), emoji: emoji || '🏷️', color, budget };
+    const fields = { name: name.trim(), emoji: emoji || '🏷️', color, budget: kind === 'income' ? null : budget };
     if (category) await db.categories.update(category.id, fields);
-    else await db.categories.add({ id: newId(), order: nextOrder, ...fields });
+    else await db.categories.add({ id: newId(), order: nextOrder, ...fields, ...(kind === 'income' ? { kind } : {}) });
     onClose();
     toast(category ? 'Category saved' : `Added ${fields.emoji} ${fields.name}`);
   };
@@ -111,6 +114,7 @@ export function CategorySheet({
           ))}
         </div>
 
+        {kind === 'income' ? null : (
         <label className="block">
           <span className="px-1 text-sm text-zinc-500">Monthly limit (optional)</span>
           <span className="mt-1 flex items-center rounded-2xl bg-white px-4 py-3 dark:bg-zinc-800">
@@ -126,12 +130,13 @@ export function CategorySheet({
           </span>
           {budgetInvalid ? <span className="mt-1 block px-1 text-sm text-red-500">Enter an amount like 2000</span> : null}
         </label>
+        )}
 
-        {category && category.id !== 'other' ? (
+        {category && category.id !== FALLBACK.expense && category.id !== FALLBACK.income ? (
           <button onClick={() => void remove()} className="h-12 w-full rounded-2xl bg-red-500/10 font-medium text-red-500">
             {confirmingDelete
               ? usage
-                ? `Tap again · ${usage} ${usage === 1 ? 'expense moves' : 'expenses move'} to Other`
+                ? `Tap again · ${usage} ${usage === 1 ? 'entry moves' : 'entries move'} to ${kind === 'income' ? 'Other income' : 'Other'}`
                 : 'Tap again to delete'
               : 'Delete category'}
           </button>

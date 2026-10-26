@@ -13,6 +13,7 @@ describe('parseAmount', () => {
     ['1.5L', 15000000],
     ['40rs', 4000],
     ['500/-', 50000],
+    ['+200', 20000],
   ])('%s → %d paise', (input, paise) => {
     expect(parseAmount(input)).toBe(paise);
   });

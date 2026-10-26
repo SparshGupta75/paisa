@@ -19,10 +19,16 @@ export function useCategories(): Category[] {
   return (
     useLiveQuery(async () => {
       const categories = await db.categories.orderBy('order').toArray();
-      // "Other" is the catch-all, so it always comes last.
-      return [...categories.filter((c) => c.id !== 'other'), ...categories.filter((c) => c.id === 'other')];
+      // The catch-alls ("Other", "Other income") always come last.
+      const last = (c: Category) => c.id === 'other' || c.id === 'income-other';
+      return [...categories.filter((c) => !last(c)), ...categories.filter(last)];
     }, []) ?? []
   );
+}
+
+/** Categories for one direction: expense (default) or money in. */
+export function useCategoriesOf(kind: 'expense' | 'income'): Category[] {
+  return useCategories().filter((c) => (c.kind === 'income') === (kind === 'income'));
 }
 
 export function useCategoryMap(): Map<string, Category> {

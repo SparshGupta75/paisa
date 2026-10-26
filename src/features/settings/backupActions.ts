@@ -1,4 +1,4 @@
-import { db, setSetting } from '../../db';
+import { db, ensureIncomeCategories, setSetting } from '../../db';
 import { buildBackup, toCSV, type Backup } from '../../lib/backup';
 import { toISODate } from '../../lib/dates';
 import { saveFile } from '../../lib/files';
@@ -29,5 +29,6 @@ export async function restore(backup: Backup): Promise<void> {
     await db.txns.bulkAdd(backup.txns);
     await db.settings.bulkAdd(backup.settings);
     await db.settings.put({ key: 'lastBackupAt', value: Date.parse(backup.exportedAt) });
+    await ensureIncomeCategories();
   });
 }

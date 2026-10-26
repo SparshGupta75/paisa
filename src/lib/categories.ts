@@ -20,6 +20,14 @@ export const DEFAULT_CATEGORIES: CategorySeed[] = [
   { id: 'other', name: 'Other', emoji: '📦', color: '#71717a', keywords: [] },
 ];
 
+/** Money-in categories. `income-other` is the catch-all and can't be deleted. */
+export const INCOME_CATEGORIES: CategorySeed[] = [
+  { id: 'salary', name: 'Salary', emoji: '💼', color: '#10b981', keywords: ['salary', 'payroll', 'stipend', 'bonus'] },
+  { id: 'people', name: 'From people', emoji: '🤝', color: '#0ea5e9', keywords: ['friend', 'split', 'splitwise', 'returned', 'back'] },
+  { id: 'refund', name: 'Refunds', emoji: '↩️', color: '#a855f7', keywords: ['refund', 'cashback', 'reversal', 'return'] },
+  { id: 'income-other', name: 'Other income', emoji: '💰', color: '#71717a', keywords: [] },
+];
+
 export function guessCategory(words: string[], categories: CategorySeed[] = DEFAULT_CATEGORIES): string | null {
   for (const word of words) {
     const hit = categories.find((category) => category.keywords.includes(word.toLowerCase()));

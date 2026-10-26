@@ -33,6 +33,16 @@ describe('parseBackup', () => {
     expect(() => parseBackup(JSON.stringify({ ...backup(), categories: [food] }))).toThrow(/Other/);
   });
 
+  it('accepts money in and splits, and rejects bad splits', () => {
+    const ok = { ...backup(), txns: [{ ...chai, share: 2000 }, { ...chai, id: 't9', type: 'income', categoryId: 'people' }] };
+    expect(parseBackup(JSON.stringify(ok)).txns[1]!.categoryId).toBe('income-other'); // older backup without income categories
+    expect(describeBackup(parseBackup(JSON.stringify(ok)))).toBe('1 expense (₹40) and 1 money in (+₹40)');
+    const bad = (txn: Partial<Txn>) => JSON.stringify({ ...backup(), txns: [{ ...chai, ...txn }] });
+    expect(() => parseBackup(bad({ share: 4000 }))).toThrow(/split/);
+    expect(() => parseBackup(bad({ share: 0 }))).toThrow(/split/);
+    expect(() => parseBackup(bad({ type: 'transfer' as 'income' }))).toThrow(/damaged/);
+  });
+
   it('rejects duplicate ids', () => {
     expect(() => parseBackup(JSON.stringify({ ...backup(), txns: [chai, chai] }))).toThrow(/duplicate expenses/);
     expect(() => parseBackup(JSON.stringify({ ...backup(), categories: [food, food, other] }))).toThrow(/duplicate categories/);
@@ -57,10 +67,18 @@ describe('CSV export', () => {
     const later: Txn = { ...chai, id: 't2', date: '2026-10-27', amount: 32050, note: 'uber, office', categoryId: 'missing' };
     const csv = toCSV([later, chai], new Map([['food', food], ['other', other]]));
     expect(csv.split('\r\n')).toEqual([
-      'Date,Amount (INR),Category,Note',
-      '2026-10-26,40.00,Food,chai',
-      '2026-10-27,320.50,Other,"uber, office"',
+      'Date,Type,Amount (INR),Your share (INR),Category,Note',
+      '2026-10-26,Expense,40.00,40.00,Food,chai',
+      '2026-10-27,Expense,320.50,320.50,Other,"uber, office"',
       '',
     ]);
+  });
+
+  it('marks money in and split shares', () => {
+    const split: Txn = { ...chai, id: 't3', amount: 20000, share: 10000, note: 'dinner' };
+    const got: Txn = { ...chai, id: 't4', amount: 20000, type: 'income', categoryId: 'people', note: 'rahul' };
+    const lines = toCSV([split, got], new Map([['food', food]])).split('\r\n');
+    expect(lines[1]).toBe('2026-10-26,Expense,200.00,100.00,Food,dinner');
+    expect(lines[2]).toBe('2026-10-26,Money in,200.00,,Other income,rahul');
   });
 });

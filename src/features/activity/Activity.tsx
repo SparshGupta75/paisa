@@ -8,6 +8,18 @@ import { useCategoryMap } from '../../hooks';
 import { dayLabel } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { matchesSearch } from '../../lib/search';
+import { receivedOf, spentOf } from '../../lib/totals';
+
+/** "₹1,100 · +₹200": what you spent, and money in when there was any. */
+function Totals({ txns }: { txns: Txn[] }) {
+  const received = receivedOf(txns);
+  return (
+    <span className="tabular">
+      {formatINR(spentOf(txns))}
+      {received ? <span className="text-emerald-600 dark:text-emerald-400"> · +{formatINR(received)}</span> : null}
+    </span>
+  );
+}
 
 /** Newest day first; within a day, newest entry first. */
 export function useAllTxns(): Txn[] | undefined {
@@ -63,7 +75,7 @@ export function Activity({
       {query.trim() && txns.length > 0 ? (
         <p className="mb-3 px-1 text-sm text-zinc-500">
           {txns.length} {txns.length === 1 ? 'result' : 'results'} ·{' '}
-          <span className="tabular">{formatINR(txns.reduce((sum, t) => sum + t.amount, 0))}</span>
+          <Totals txns={txns} />
         </p>
       ) : null}
       {allTxns.length === 0 ? (
@@ -76,7 +88,7 @@ export function Activity({
             <div key={date}>
               <div className="mb-1.5 flex justify-between px-1 text-sm font-medium text-zinc-500">
                 <span>{dayLabel(date, today)}</span>
-                <span className="tabular">{formatINR(dayTxns.reduce((sum, t) => sum + t.amount, 0))}</span>
+                <Totals txns={dayTxns} />
               </div>
               <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
                 {dayTxns.map((txn) => (

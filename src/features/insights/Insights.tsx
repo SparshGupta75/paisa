@@ -77,11 +77,14 @@ export function Insights({ today }: { today: string }) {
     );
   }
 
-  const summary = summarizeMonth(txns, month, today);
+  // Insights are about spending: expenses at your share. Money in is shown on its own.
+  const expenses = txns.filter((t) => t.type !== 'income').map((t) => ({ ...t, amount: t.share ?? t.amount }));
+  const receivedThisMonth = txns.filter((t) => t.type === 'income' && monthKey(t.date) === month).reduce((s, t) => s + t.amount, 0);
+  const summary = summarizeMonth(expenses, month, today);
   const isCurrent = month === monthKey(today);
   const previousName = monthLabel(shiftMonth(month, -1)).split(' ')[0]!;
   // Always the six months up to now, so the chart doesn't slide while browsing.
-  const trend = monthlyTrend(txns, monthKey(today));
+  const trend = monthlyTrend(expenses, monthKey(today));
   const trendMax = Math.max(1, ...trend.map((m) => m.total));
   const levels = heatLevels(summary.daily);
   const firstMonth = monthKey(txns[txns.length - 1]!.date);
@@ -114,6 +117,11 @@ export function Insights({ today }: { today: string }) {
           change={summary.change}
           against={isCurrent ? `the same point in ${previousName}` : previousName}
         />
+        {receivedThisMonth > 0 ? (
+          <p className="mt-3 border-t border-zinc-100 pt-3 text-sm text-zinc-500 dark:border-zinc-800">
+            Money in: <span className="tabular font-semibold text-emerald-600 dark:text-emerald-400">+{formatINR(receivedThisMonth)}</span>
+          </p>
+        ) : null}
         {summary.projected !== null ? (
           <p className="mt-3 border-t border-zinc-100 pt-3 text-sm text-zinc-500 dark:border-zinc-800">
             On this pace you’ll spend about <span className="tabular font-semibold text-zinc-900 dark:text-zinc-100">{formatINR(summary.projected)}</span> by month end.

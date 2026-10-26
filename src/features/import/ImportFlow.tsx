@@ -9,12 +9,13 @@ import { parseCSV } from '../../lib/csv';
 import { dayLabel } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { categorize } from '../../lib/rules';
-import { cleanMerchant, detectColumns, extractExpenses, importKeys, type ColumnMap } from '../../lib/statement';
+import { cleanMerchant, detectColumns, extractTransactions, importKeys, incomeCategoryFor, type ColumnMap } from '../../lib/statement';
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 interface Row {
   key: string;
+  type?: 'income';
   date: string;
   amount: number;
   merchant: string;
@@ -44,9 +45,9 @@ export function ImportFlow({ today }: { today: string }) {
   const [importing, setImporting] = useState(false);
 
   const buildPreview = async (rows: string[][], headerRow: number, map: ColumnMap, signature: string, quiet = false) => {
-    const expenses = extractExpenses(rows, headerRow, map);
+    const expenses = extractTransactions(rows, headerRow, map);
     if (expenses.length === 0) {
-      if (!quiet) toast('No money-out lines found with those columns.');
+      if (!quiet) toast('No transactions found with those columns.');
       return false;
     }
     await setSetting(`importMap:${signature}`, map);
@@ -57,22 +58,30 @@ export function ImportFlow({ today }: { today: string }) {
       db.txns.toArray(),
     ]);
     const seen = new Set(existing.map((t) => t.importKey));
-    const manual = new Set(all.filter((t) => !t.importKey).map((t) => `${t.date}|${t.amount}`));
+    const manual = new Set(all.filter((t) => !t.importKey).map((t) => `${t.date}|${t.amount}|${t.type ?? ''}`));
     const ruleMap = new Map(rules.map((r) => [r.merchant, r.categoryId]));
-    const validIds = new Set(categories.map((c) => c.id));
+    const expenseIds = new Set(categories.filter((c) => c.kind !== 'income').map((c) => c.id));
+    const incomeIds = new Set(categories.filter((c) => c.kind === 'income').map((c) => c.id));
 
     const fresh: Row[] = [];
     for (const [i, expense] of expenses.entries()) {
       const key = keys[i]!;
       if (seen.has(key)) continue;
       const merchant = cleanMerchant(expense.raw);
-      const possibleDuplicate = manual.has(`${expense.date}|${expense.amount}`);
+      const possibleDuplicate = manual.has(`${expense.date}|${expense.amount}|${expense.type ?? ''}`);
+      const ruled = ruleMap.get(merchant.toLowerCase());
       fresh.push({
         key,
+        type: expense.type,
         date: expense.date,
         amount: expense.amount,
         merchant,
-        categoryId: categorize(merchant, ruleMap, validIds),
+        categoryId:
+          expense.type === 'income'
+            ? ruled && incomeIds.has(ruled)
+              ? ruled
+              : incomeCategoryFor(expense.raw)
+            : categorize(merchant, ruleMap, expenseIds),
         include: !possibleDuplicate,
         possibleDuplicate,
       });
@@ -118,7 +127,7 @@ export function ImportFlow({ today }: { today: string }) {
       p && {
         ...p,
         // A choice applies to every line from that merchant, and is remembered.
-        rows: p.rows.map((r) => (r.merchant === merchant ? { ...r, categoryId } : r)),
+        rows: p.rows.map((r) => (r.merchant === merchant && (r.type === 'income') === incomeCategory(categoryId) ? { ...r, categoryId } : r)),
         changed: new Set(p.changed).add(merchant),
       },
     );
@@ -133,6 +142,7 @@ export function ImportFlow({ today }: { today: string }) {
       chosen.map((r, i) => ({
         id: newId(),
         amount: r.amount,
+        ...(r.type ? { type: r.type } : {}),
         date: r.date,
         categoryId: r.categoryId,
         note: r.merchant,
@@ -148,10 +158,13 @@ export function ImportFlow({ today }: { today: string }) {
     }
     setPreview(null);
     setImporting(false);
-    toast(`Imported ${chosen.length} ${chosen.length === 1 ? 'expense' : 'expenses'}`);
+    toast(`Imported ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}`);
   };
 
   const included = preview?.rows.filter((r) => r.include) ?? [];
+  const out = included.filter((r) => r.type !== 'income').reduce((sum, r) => sum + r.amount, 0);
+  const inn = included.filter((r) => r.type === 'income').reduce((sum, r) => sum + r.amount, 0);
+  const incomeCategory = (id: string) => categories.find((c) => c.id === id)?.kind === 'income';
   // Column labels: the header row, or "Column 2 · PVR Cinemas" from the first line when there is none.
   const headers = !mapping
     ? []
@@ -254,7 +267,10 @@ export function ImportFlow({ today }: { today: string }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between gap-2">
                       <span className="truncate font-medium">{row.merchant}</span>
-                      <span className="tabular shrink-0 font-semibold">{formatINR(row.amount)}</span>
+                      <span className={`tabular shrink-0 font-semibold ${row.type === 'income' ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
+                        {row.type === 'income' ? '+' : ''}
+                        {formatINR(row.amount)}
+                      </span>
                     </div>
                     <div className="mt-0.5 flex items-center justify-between gap-2 text-sm text-zinc-500">
                       <span>
@@ -267,7 +283,7 @@ export function ImportFlow({ today }: { today: string }) {
                         onChange={(event) => setCategory(row.merchant, event.target.value)}
                         className="max-w-36 rounded-lg bg-zinc-100 px-2 py-1 text-sm text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
                       >
-                        {categories.map((c) => (
+                        {categories.filter((c) => (c.kind === 'income') === (row.type === 'income')).map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.emoji} {c.name}
                           </option>
@@ -286,7 +302,7 @@ export function ImportFlow({ today }: { today: string }) {
               >
                 {included.length === 0
                   ? 'Nothing to import'
-                  : `Import ${included.length} · ${formatINR(included.reduce((sum, r) => sum + r.amount, 0))}`}
+                  : `Import ${included.length} · ${[out ? formatINR(out) : '', inn ? `+${formatINR(inn)}` : ''].filter(Boolean).join(' · ')}`}
               </button>
             </div>
           </>

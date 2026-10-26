@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseCSV } from './csv';
-import { cleanMerchant, detectColumns, extractExpenses, importKeys, parseStatementAmount, parseStatementDate } from './statement';
+import {
+  cleanMerchant,
+  detectColumns,
+  extractExpenses,
+  extractTransactions,
+  importKeys,
+  incomeCategoryFor,
+  parseStatementAmount,
+  parseStatementDate,
+} from './statement';
 
 describe('parseCSV', () => {
   it('handles quotes, embedded commas, CRLF and a BOM', () => {
@@ -86,6 +95,21 @@ Date,Narration,Chq./Ref.No.,Value Dt,Withdrawal Amt.,Deposit Amt.,Closing Balanc
       { date: '2026-10-05', amount: 34900, raw: 'UPI-SWIGGY-swiggy@ybl-YESB0000001-612345678901-UPI' },
       { date: '2026-10-07', amount: 125050, raw: 'UPI-UBER INDIA-uber@axis-UTIB0000001-612345678902-Ride, office' },
     ]);
+  });
+
+  it('also reads money in, keyed apart from money out', () => {
+    const rows = parseCSV(hdfc);
+    const detected = detectColumns(rows)!;
+    const all = extractTransactions(rows, detected.headerRow, detected.map);
+    expect(all.map((t) => [t.date, t.amount, t.type ?? 'out'])).toEqual([
+      ['2026-10-05', 34900, 'out'],
+      ['2026-10-06', 8500000, 'income'],
+      ['2026-10-07', 125050, 'out'],
+    ]);
+    expect(incomeCategoryFor(all[1]!.raw)).toBe('salary');
+    expect(incomeCategoryFor('UPI/CR/123/RAHUL/x')).toBe('people');
+    expect(importKeys([all[0]!])[0]).not.toContain('|in');
+    expect(importKeys([all[1]!])[0]).toMatch(/\|in$/);
   });
 
   it('supports a single amount column with a Dr/Cr type', () => {

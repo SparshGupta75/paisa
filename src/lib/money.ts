@@ -2,7 +2,7 @@
 
 /** "1,234.50", "₹40", "2k", "1.5L" → paise. Null when it isn't a positive amount. */
 export function parseAmount(input: string): number | null {
-  const match = /^(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d{1,2})?|\.\d{1,2})\s*(k|l|lakh)?\s*(?:rs\.?|₹|\/-)?$/i.exec(input.trim());
+  const match = /^\+?(?:₹|rs\.?|inr)?\s*(\d[\d,]*(?:\.\d{1,2})?|\.\d{1,2})\s*(k|l|lakh)?\s*(?:rs\.?|₹|\/-)?$/i.exec(input.trim());
   if (!match) return null;
   const [, number = '', suffix] = match;
   const [whole = '0', fraction = ''] = number.replace(/,/g, '').split('.');

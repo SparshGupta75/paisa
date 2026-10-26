@@ -6,7 +6,7 @@ import { parseAmount } from './money';
  * not ₹140); a decimal matches exactly ("40.5" finds ₹40.50).
  */
 export function matchesSearch(txn: { amount: number; note: string }, categoryName: string, query: string): boolean {
-  const words = query.toLowerCase().replace(/[₹,]/g, '').split(/\s+/).filter(Boolean);
+  const words = query.toLowerCase().replace(/[₹,+]/g, '').split(/\s+/).filter(Boolean);
   const text = `${txn.note} ${categoryName}`.toLowerCase();
   const rupees = String(Math.floor(txn.amount / 100));
   return words.every((word) => {

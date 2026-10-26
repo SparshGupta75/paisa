@@ -47,6 +47,7 @@ export function parseBackup(text: string): Backup {
       throw new Error('This backup has a damaged category.');
     }
     if (c.budget != null && !isPaise(c.budget)) throw new Error('This backup has a damaged category limit.');
+    if (c.kind !== undefined && c.kind !== 'income') throw new Error('This backup has a damaged category.');
     categoryIds.add(c.id);
   }
   if (!categoryIds.has('other')) throw new Error('This backup is missing the “Other” category.');
@@ -55,6 +56,10 @@ export function parseBackup(text: string): Backup {
       throw new Error('This backup has a damaged expense.');
     }
     if (typeof t.createdAt !== 'number' || typeof t.updatedAt !== 'number') throw new Error('This backup has a damaged expense.');
+    if (t.type !== undefined && t.type !== 'income') throw new Error('This backup has a damaged expense.');
+    if (t.share !== undefined && (!isPaise(t.share) || t.share >= t.amount || t.type === 'income')) {
+      throw new Error('This backup has a damaged split.');
+    }
   }
   for (const s of backup.settings) {
     if (!isString(s?.key)) throw new Error('This backup has a damaged setting.');
@@ -65,8 +70,11 @@ export function parseBackup(text: string): Backup {
   if (Number.isNaN(Date.parse(backup.exportedAt ?? ''))) throw new Error('This backup is damaged (no export date).');
   return {
     ...(backup as Backup),
-    // Expenses pointing at a missing category fall back to Other rather than vanish.
-    txns: backup.txns.map((t) => (categoryIds.has(t.categoryId) ? t : { ...t, categoryId: 'other' })),
+    // Entries pointing at a missing category fall back to the catch-all rather than vanish
+    // ("Other income" is added on restore if an older backup lacks it).
+    txns: backup.txns.map((t) =>
+      categoryIds.has(t.categoryId) ? t : { ...t, categoryId: t.type === 'income' ? 'income-other' : 'other' },
+    ),
   };
 }
 
@@ -77,14 +85,25 @@ export function csvCell(value: string): string {
 }
 
 export function toCSV(txns: Txn[], categories: Map<string, Category>): string {
-  const header = ['Date', 'Amount (INR)', 'Category', 'Note'];
+  const header = ['Date', 'Type', 'Amount (INR)', 'Your share (INR)', 'Category', 'Note'];
   const rows = [...txns]
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
-    .map((t) => [t.date, (t.amount / 100).toFixed(2), categories.get(t.categoryId)?.name ?? 'Other', t.note]);
+    .map((t) => [
+      t.date,
+      t.type === 'income' ? 'Money in' : 'Expense',
+      (t.amount / 100).toFixed(2),
+      t.type === 'income' ? '' : ((t.share ?? t.amount) / 100).toFixed(2),
+      categories.get(t.categoryId)?.name ?? (t.type === 'income' ? 'Other income' : 'Other'),
+      t.note,
+    ]);
   return [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
 
 export function describeBackup(backup: Backup): string {
-  const total = backup.txns.reduce((sum, t) => sum + t.amount, 0);
-  return `${backup.txns.length} ${backup.txns.length === 1 ? 'expense' : 'expenses'} (${formatINR(total)})`;
+  const expenses = backup.txns.filter((t) => t.type !== 'income');
+  const income = backup.txns.filter((t) => t.type === 'income');
+  const total = (list: Txn[]) => list.reduce((sum, t) => sum + t.amount, 0);
+  const parts = [`${expenses.length} ${expenses.length === 1 ? 'expense' : 'expenses'} (${formatINR(total(expenses))})`];
+  if (income.length) parts.push(`${income.length} money in (+${formatINR(total(income))})`);
+  return parts.join(' and ');
 }

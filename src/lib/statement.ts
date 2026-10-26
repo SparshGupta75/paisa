@@ -82,6 +82,40 @@ export interface StatementExpense {
   date: string;
   amount: number;
   raw: string;
+  /** Money in (a credit); absent for money out. */
+  type?: 'income';
+}
+
+/** Money out and money in from statement rows. Blanks and unreadable rows are skipped. */
+export function extractTransactions(rows: string[][], headerRow: number, map: ColumnMap): StatementExpense[] {
+  const found: StatementExpense[] = [];
+  // headerRow is -1 for files without a header row.
+  for (const row of rows.slice(headerRow + 1)) {
+    const date = parseStatementDate(row[map.date] ?? '');
+    if (!date) continue;
+    const raw = (row[map.description] ?? '').replace(/\s+/g, ' ').trim();
+    if (map.debit >= 0) {
+      const out = parseStatementAmount(row[map.debit] ?? '')?.paise;
+      const inn = map.credit >= 0 ? parseStatementAmount(row[map.credit] ?? '')?.paise : undefined;
+      if (out) found.push({ date, amount: out, raw });
+      else if (inn) found.push({ date, amount: inn, raw, type: 'income' });
+    } else if (map.amount >= 0) {
+      const parsed = parseStatementAmount(row[map.amount] ?? '');
+      const type = (row[map.type] ?? '').trim().toLowerCase();
+      const direction = type ? (type.startsWith('d') ? 'debit' : type.startsWith('c') ? 'credit' : null) : parsed?.direction;
+      if (parsed && direction === 'debit') found.push({ date, amount: parsed.paise, raw });
+      else if (parsed && direction === 'credit') found.push({ date, amount: parsed.paise, raw, type: 'income' });
+    }
+  }
+  return found;
+}
+
+/** Money-in category for a statement credit, before any learned rule. */
+export function incomeCategoryFor(raw: string): string {
+  if (/salary|payroll|\bsal\b/i.test(raw)) return 'salary';
+  if (/refund|reversal|cashback|\brev\b/i.test(raw)) return 'refund';
+  if (/upi|imps/i.test(raw)) return 'people';
+  return 'income-other';
 }
 
 /** Expenses (money out) from statement rows. Credits, blanks and unreadable rows are skipped. */
@@ -181,7 +215,8 @@ export function cleanMerchant(raw: string): string {
 export function importKeys(expenses: StatementExpense[]): string[] {
   const seen = new Map<string, number>();
   return expenses.map((e) => {
-    const base = `${e.date}|${e.amount}|${e.raw.toLowerCase()}`;
+    // Money out keeps the key format it always had, so earlier imports still match.
+    const base = `${e.date}|${e.amount}|${e.raw.toLowerCase()}${e.type === 'income' ? '|in' : ''}`;
     const n = (seen.get(base) ?? 0) + 1;
     seen.set(base, n);
     return n === 1 ? base : `${base}#${n}`;

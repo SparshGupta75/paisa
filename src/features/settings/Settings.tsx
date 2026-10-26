@@ -25,7 +25,7 @@ export function Settings({ today }: { today: string }) {
   const categories = useCategories();
   const budget = useSetting<number | null>('monthlyBudget', null);
   const [editingBudget, setEditingBudget] = useState(false);
-  const [editing, setEditing] = useState<Category | 'new' | null>(null);
+  const [editing, setEditing] = useState<Category | { new: 'expense' | 'income' } | null>(null);
   const expenseCount = useLiveQuery(() => db.txns.count(), []) ?? 0;
 
   return (
@@ -35,33 +35,39 @@ export function Settings({ today }: { today: string }) {
         <Row label="Monthly budget" value={budget ? formatINR(budget) : 'Not set'} onPress={() => setEditingBudget(true)} />
       </Card>
 
-      <h2 className="mt-6 mb-1.5 px-1 text-sm font-medium text-zinc-500">Categories</h2>
-      <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {categories.map((category) => (
-          <Row
-            key={category.id}
-            label={category.name}
-            value={category.budget ? `${formatINR(category.budget)}/mo` : undefined}
-            onPress={() => setEditing(category)}
-            leading={
-              <span
-                className="flex size-8 items-center justify-center rounded-full text-base"
-                style={{ backgroundColor: `${category.color}22` }}
-                aria-hidden
-              >
-                {category.emoji}
-              </span>
-            }
-          />
-        ))}
-        <button
-          onClick={() => setEditing('new')}
-          className="flex w-full items-center gap-3 px-4 py-3.5 font-medium text-emerald-600 dark:text-emerald-400"
-        >
-          <Plus size={20} className="mx-1.5" />
-          Add category
-        </button>
-      </Card>
+      {(['expense', 'income'] as const).map((kind) => (
+        <div key={kind}>
+          <h2 className="mt-6 mb-1.5 px-1 text-sm font-medium text-zinc-500">{kind === 'expense' ? 'Expense categories' : 'Money in categories'}</h2>
+          <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {categories
+              .filter((category) => (category.kind === 'income') === (kind === 'income'))
+              .map((category) => (
+                <Row
+                  key={category.id}
+                  label={category.name}
+                  value={category.budget ? `${formatINR(category.budget)}/mo` : undefined}
+                  onPress={() => setEditing(category)}
+                  leading={
+                    <span
+                      className="flex size-8 items-center justify-center rounded-full text-base"
+                      style={{ backgroundColor: `${category.color}22` }}
+                      aria-hidden
+                    >
+                      {category.emoji}
+                    </span>
+                  }
+                />
+              ))}
+            <button
+              onClick={() => setEditing({ new: kind })}
+              className="flex w-full items-center gap-3 px-4 py-3.5 font-medium text-emerald-600 transition-colors active:bg-zinc-100 dark:text-emerald-400 dark:active:bg-zinc-800"
+            >
+              <Plus size={20} className="mx-1.5" />
+              {kind === 'expense' ? 'Add category' : 'Add money in category'}
+            </button>
+          </Card>
+        </div>
+      ))}
 
       <DataSection expenseCount={expenseCount} today={today} />
 
@@ -77,7 +83,8 @@ export function Settings({ today }: { today: string }) {
       <CategorySheet
         open={editing !== null}
         onClose={() => setEditing(null)}
-        category={editing === 'new' ? null : editing}
+        category={editing && 'new' in editing ? null : editing}
+        kind={editing && 'new' in editing ? editing.new : editing?.kind === 'income' ? 'income' : 'expense'}
         nextOrder={Math.max(0, ...categories.map((c) => c.order)) + 1}
       />
     </Screen>

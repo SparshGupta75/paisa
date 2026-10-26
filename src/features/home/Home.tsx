@@ -8,6 +8,7 @@ import { useCategoryMap, useSetting } from '../../hooks';
 import { budgetStatus } from '../../lib/budget';
 import { fromISODate, monthKey } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
+import { receivedOf, spentOf } from '../../lib/totals';
 import { useAllTxns } from '../activity/Activity';
 import { BudgetSheet } from '../budget/BudgetSheet';
 import { useToast } from '../../components/Toast';
@@ -26,14 +27,18 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
   if (txns === undefined) return <Screen title="Paisa">{null}</Screen>;
 
   const month = txns.filter((txn) => monthKey(txn.date) === monthKey(today));
-  const spent = month.reduce((sum, txn) => sum + txn.amount, 0);
-  const spentToday = month.filter((txn) => txn.date === today).reduce((sum, txn) => sum + txn.amount, 0);
+  // Spending is expenses at your share; money in is shown on its own and never raises the budget.
+  const spent = spentOf(month);
+  const spentToday = spentOf(month.filter((txn) => txn.date === today));
+  const received = receivedOf(month);
   const dayOfMonth = fromISODate(today).getDate();
   const monthName = fromISODate(today).toLocaleDateString('en-IN', { month: 'long' });
   const status = budget ? budgetStatus({ budget, spentThisMonth: spent, spentToday, today }) : null;
 
   const byCategory = new Map<string, number>();
-  for (const txn of month) byCategory.set(txn.categoryId, (byCategory.get(txn.categoryId) ?? 0) + txn.amount);
+  for (const txn of month) {
+    if (txn.type !== 'income') byCategory.set(txn.categoryId, (byCategory.get(txn.categoryId) ?? 0) + (txn.share ?? txn.amount));
+  }
   const top = [...byCategory].sort((a, b) => b[1] - a[1]).slice(0, 4);
   const largest = top[0]?.[1] ?? 1;
 
@@ -108,6 +113,22 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
           <p className="tabular mt-0.5 text-xl font-semibold">{formatINR(Math.round(spent / dayOfMonth))}</p>
         </Card>
       </div>
+
+      {received > 0 ? (
+        <Card className="mt-3 flex items-center justify-between p-4">
+          <div>
+            <p className="text-sm text-zinc-500">Money in</p>
+            <p className="tabular mt-0.5 text-xl font-semibold text-emerald-600 dark:text-emerald-400">+{formatINR(received)}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-zinc-500">Net this month</p>
+            <p className={`tabular mt-0.5 text-xl font-semibold ${received - spent < 0 ? '' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {received - spent < 0 ? '−' : '+'}
+              {formatINR(Math.abs(received - spent))}
+            </p>
+          </div>
+        </Card>
+      ) : null}
 
       {top.length > 0 ? (
         <>
