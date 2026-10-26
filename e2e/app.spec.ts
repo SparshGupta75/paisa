@@ -29,3 +29,30 @@ test('keypad entry with a picked category', async ({ page }) => {
   await page.getByRole('button', { name: 'Add ₹1,250' }).click();
   await expect(page.getByRole('status')).toContainText('Added ₹1,250 · Groceries');
 });
+
+test('edit, delete with undo, and search', async ({ page }) => {
+  await page.goto('/');
+  for (const text of ['chai 40', 'uber 320']) {
+    await page.getByRole('button', { name: 'Add expense' }).click();
+    await page.getByLabel('Quick add').fill(text);
+    await page.getByLabel('Quick add').press('Enter');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+  await page.getByRole('tab', { name: 'Activity' }).click();
+
+  await page.getByRole('button', { name: /chai/ }).click();
+  await page.getByLabel('Note').fill('masala chai');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByText('masala chai')).toBeVisible();
+
+  await page.getByLabel('Search').fill('uber');
+  await expect(page.getByText('1 result')).toBeVisible();
+  await expect(page.getByText('masala chai')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Clear search' }).click();
+
+  await page.getByRole('button', { name: /masala chai/ }).click();
+  await page.getByRole('button', { name: 'Delete expense' }).click();
+  await expect(page.getByText('masala chai')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText('masala chai')).toBeVisible();
+});

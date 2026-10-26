@@ -24,7 +24,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback((message: string, action?: ToastAction) => {
     window.clearTimeout(timer.current);
     setToast({ id: Date.now(), message, action });
-    timer.current = window.setTimeout(() => setToast(null), 4000);
+    // Longer when there is something to undo.
+    timer.current = window.setTimeout(() => setToast(null), action ? 7000 : 3500);
   }, []);
 
   return (

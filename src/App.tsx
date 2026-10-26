@@ -6,17 +6,24 @@ import { ToastProvider } from './components/Toast';
 import { Activity } from './features/activity/Activity';
 import { AddSheet } from './features/add/AddSheet';
 import { Home } from './features/home/Home';
+import type { Txn } from './db';
 import { useToday } from './hooks';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('home');
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Txn | null>(null);
+  const [query, setQuery] = useState('');
+  const close = () => {
+    setAdding(false);
+    setEditing(null);
+  };
   const today = useToday();
 
   return (
     <ToastProvider>
-      {tab === 'home' ? <Home today={today} /> : null}
-      {tab === 'activity' ? <Activity today={today} /> : null}
+      {tab === 'home' ? <Home today={today} onEdit={setEditing} /> : null}
+      {tab === 'activity' ? <Activity today={today} onEdit={setEditing} query={query} setQuery={setQuery} /> : null}
       {tab === 'insights' ? (
         <Screen title="Insights">
           <Empty emoji="📊" title="Coming soon" message="Trends and breakdowns appear here." />
@@ -28,7 +35,7 @@ export function App() {
         </Screen>
       ) : null}
       <TabBar tab={tab} onTab={setTab} onAdd={() => setAdding(true)} />
-      <AddSheet open={adding} onClose={() => setAdding(false)} today={today} />
+      <AddSheet open={adding || editing !== null} onClose={close} today={today} editing={editing} />
     </ToastProvider>
   );
 }

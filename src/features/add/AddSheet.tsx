@@ -1,9 +1,9 @@
-import { CalendarDays, Delete, Sparkles } from 'lucide-react';
+import { CalendarDays, Delete, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
-import { db, newId } from '../../db';
+import { db, newId, type Txn } from '../../db';
 import { useCategories } from '../../hooks';
 import { addDays, dayLabel } from '../../lib/dates';
 import { formatINR, parseAmount } from '../../lib/money';
@@ -20,7 +20,18 @@ function pressKey(text: string, key: (typeof KEYS)[number]): string {
   return text === '0' ? key : text + key;
 }
 
-export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () => void; today: string }) {
+/** Adds a new expense, or edits `editing` when given. */
+export function AddSheet({
+  open,
+  onClose,
+  today,
+  editing = null,
+}: {
+  open: boolean;
+  onClose: () => void;
+  today: string;
+  editing?: Txn | null;
+}) {
   const categories = useCategories();
   const toast = useToast();
   const [quick, setQuick] = useState('');
@@ -38,14 +49,14 @@ export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () 
   useEffect(() => {
     if (!open) return;
     setQuick('');
-    setAmountText('');
-    setCategoryId(null);
-    setPickedCategory(false);
-    setDate(today);
-    setNote('');
+    setAmountText(editing ? String(editing.amount / 100) : '');
+    setCategoryId(editing?.categoryId ?? null);
+    setPickedCategory(!!editing);
+    setDate(editing?.date ?? today);
+    setNote(editing?.note ?? '');
     fromQuick.current = { amount: null, date: null, note: '' };
     saving.current = false;
-  }, [open, today]);
+  }, [open, today, editing]);
 
   const amount = parseAmount(amountText);
 
@@ -71,17 +82,25 @@ export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () 
     saving.current = true;
     const category = categories.find((c) => c.id === categoryId) ?? categories.find((c) => c.id === 'other');
     const now = Date.now();
-    await db.txns.add({
-      id: newId(),
-      amount,
-      date,
-      categoryId: category?.id ?? 'other',
-      note: note.trim(),
-      createdAt: now,
-      updatedAt: now,
-    });
+    const fields = { amount, date, categoryId: category?.id ?? 'other', note: note.trim(), updatedAt: now };
+    if (editing) {
+      await db.txns.update(editing.id, fields);
+      onClose();
+      toast('Saved');
+      return;
+    }
+    await db.txns.add({ id: newId(), createdAt: now, ...fields });
     onClose();
     toast(`Added ${formatINR(amount)} · ${category?.name ?? 'Other'}`);
+  };
+
+  const remove = async () => {
+    if (!editing || saving.current) return;
+    saving.current = true;
+    const deleted = editing;
+    await db.txns.delete(deleted.id);
+    onClose();
+    toast(`Deleted ${formatINR(deleted.amount)}`, { label: 'Undo', onPress: () => void db.txns.put(deleted) });
   };
 
   const dateChip = (value: string, label: string) => (
@@ -96,16 +115,23 @@ export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () 
   );
 
   return (
-    <Sheet open={open} onClose={onClose} label="Add expense">
+    <Sheet open={open} onClose={onClose} label={editing ? 'Edit expense' : 'Add expense'}>
       <div className="flex items-center justify-between px-5 pt-4">
-        <button onClick={onClose} className="text-zinc-500">
+        <button onClick={onClose} className="w-16 text-left text-zinc-500">
           Cancel
         </button>
-        <span className="font-semibold">New expense</span>
-        <span className="w-12" />
+        <span className="font-semibold">{editing ? 'Edit expense' : 'New expense'}</span>
+        {editing ? (
+          <button onClick={() => void remove()} aria-label="Delete expense" className="flex w-16 justify-end text-red-500">
+            <Trash2 size={20} />
+          </button>
+        ) : (
+          <span className="w-16" />
+        )}
       </div>
 
       <div className="no-scrollbar overflow-y-auto">
+        {editing ? null : (
         <label className="mx-5 mt-4 flex items-center gap-2 rounded-2xl bg-white px-4 py-3 dark:bg-zinc-800">
           <Sparkles size={18} className="shrink-0 text-emerald-500" />
           <input
@@ -118,6 +144,7 @@ export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () 
             className="w-full bg-transparent text-base outline-none placeholder:text-zinc-400"
           />
         </label>
+        )}
 
         <div className="tabular mt-4 text-center text-6xl font-semibold tracking-tight" aria-label="Amount">
           <span className="text-zinc-400">₹</span>
@@ -197,7 +224,7 @@ export function AddSheet({ open, onClose, today }: { open: boolean; onClose: () 
             onClick={() => void save()}
             className="h-14 w-full rounded-2xl bg-emerald-500 text-lg font-semibold text-white disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
           >
-            {amount === null ? 'Enter an amount' : `Add ${formatINR(amount)}`}
+            {amount === null ? 'Enter an amount' : editing ? 'Save' : `Add ${formatINR(amount)}`}
           </button>
         </div>
       </div>

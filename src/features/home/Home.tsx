@@ -1,11 +1,12 @@
 import { Card, Empty, Screen } from '../../components/Screen';
 import { TxnRow } from '../../components/TxnRow';
+import type { Txn } from '../../db';
 import { useCategoryMap } from '../../hooks';
 import { fromISODate, monthKey } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { useAllTxns } from '../activity/Activity';
 
-export function Home({ today }: { today: string }) {
+export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => void }) {
   const txns = useAllTxns();
   const categories = useCategoryMap();
   if (txns === undefined) return <Screen title="Paisa">{null}</Screen>;
@@ -32,7 +33,7 @@ export function Home({ today }: { today: string }) {
       ) : (
         <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
           {txns.slice(0, 5).map((txn) => (
-            <TxnRow key={txn.id} txn={txn} category={categories.get(txn.categoryId)} />
+            <TxnRow key={txn.id} txn={txn} category={categories.get(txn.categoryId)} onPress={() => onEdit(txn)} />
           ))}
         </Card>
       )}
