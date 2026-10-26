@@ -157,3 +157,19 @@ test('import a bank statement, learn a category, skip re-imports', async ({ page
   await page.getByLabel('Statement file').setInputFiles('e2e/fixtures/hdfc-next.csv');
   await expect(sheet.getByLabel('Category for Uber')).toHaveValue('shopping');
 });
+
+test('insights show the month, trend, breakdown and calendar', async ({ page }) => {
+  await page.goto('/');
+  for (const text of ['chai 40', 'uber 300 yesterday', 'rent 15000 1st']) {
+    await page.getByRole('button', { name: 'Add expense' }).click();
+    await page.getByLabel('Quick add').fill(text);
+    await page.getByLabel('Quick add').press('Enter');
+  }
+  await page.getByRole('tab', { name: 'Insights' }).click();
+  await expect(page.getByText('Spent so far')).toBeVisible();
+  await expect(page.getByText('Where it went')).toBeVisible();
+  await expect(page.getByRole('listitem').filter({ hasText: 'Rent' }).first()).toBeVisible();
+  await page.getByRole('button', { name: /^Today:/ }).click();
+  await expect(page.getByText('Today · ₹40')).toBeVisible();
+  await page.getByRole('button', { name: 'Previous month' }).isDisabled();
+});
