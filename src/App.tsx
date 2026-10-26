@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 
 import { TabBar, type Tab } from './components/TabBar';
 import { ToastProvider } from './components/Toast';
@@ -20,14 +20,36 @@ export function App() {
     setEditing(null);
   };
   const today = useToday();
+  // Every tab stays mounted (no reload or blank flash when switching back) and keeps its own scroll position.
+  const scrollFor = useRef<Partial<Record<Tab, number>>>({});
+
+  const switchTab = (next: Tab) => {
+    if (next === tab) {
+      // Tapping the current tab scrolls it to the top, as on iOS.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    scrollFor.current[tab] = window.scrollY;
+    setTab(next);
+  };
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, scrollFor.current[tab] ?? 0);
+  }, [tab]);
+
+  const pane = (id: Tab, content: React.ReactNode) => (
+    <div hidden={tab !== id} className={tab === id ? 'tab-enter' : undefined}>
+      {content}
+    </div>
+  );
 
   return (
     <ToastProvider>
-      {tab === 'home' ? <Home today={today} onEdit={setEditing} /> : null}
-      {tab === 'activity' ? <Activity today={today} onEdit={setEditing} query={query} setQuery={setQuery} /> : null}
-      {tab === 'insights' ? <Insights today={today} /> : null}
-      {tab === 'settings' ? <Settings today={today} /> : null}
-      <TabBar tab={tab} onTab={setTab} onAdd={() => setAdding(true)} />
+      {pane('home', <Home today={today} onEdit={setEditing} />)}
+      {pane('activity', <Activity today={today} onEdit={setEditing} query={query} setQuery={setQuery} />)}
+      {pane('insights', <Insights today={today} />)}
+      {pane('settings', <Settings today={today} />)}
+      <TabBar tab={tab} onTab={switchTab} onAdd={() => setAdding(true)} />
       <AddSheet open={adding || editing !== null} onClose={close} today={today} editing={editing} />
     </ToastProvider>
   );
