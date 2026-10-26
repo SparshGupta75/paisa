@@ -21,7 +21,7 @@ function Row({ label, value, onPress, leading }: { label: string; value?: string
   );
 }
 
-export function Settings() {
+export function Settings({ today }: { today: string }) {
   const categories = useCategories();
   const budget = useSetting<number | null>('monthlyBudget', null);
   const [editingBudget, setEditingBudget] = useState(false);
@@ -63,7 +63,7 @@ export function Settings() {
         </button>
       </Card>
 
-      <DataSection expenseCount={expenseCount} />
+      <DataSection expenseCount={expenseCount} today={today} />
 
       <p className="mt-8 text-center text-xs text-zinc-400">Paisa · your data stays on this device</p>
 

@@ -6,6 +6,7 @@ import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { useSetting } from '../../hooks';
 import { MAX_BACKUP_BYTES, describeBackup, parseBackup, type Backup } from '../../lib/backup';
+import { ImportFlow } from '../import/ImportFlow';
 import { backUp, exportCSV, restore } from './backupActions';
 
 export function lastBackupLabel(lastBackupAt: number | null, now = Date.now()): string {
@@ -14,7 +15,7 @@ export function lastBackupLabel(lastBackupAt: number | null, now = Date.now()): 
   return days === 0 ? 'Backed up today' : `Last backup ${days} ${days === 1 ? 'day' : 'days'} ago`;
 }
 
-export function DataSection({ expenseCount }: { expenseCount: number }) {
+export function DataSection({ expenseCount, today }: { expenseCount: number; today: string }) {
   const toast = useToast();
   const lastBackupAt = useSetting<number | null>('lastBackupAt', null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,6 +45,7 @@ export function DataSection({ expenseCount }: { expenseCount: number }) {
     <>
       <h2 className="mt-6 mb-1.5 px-1 text-sm font-medium text-zinc-500">Your data</h2>
       <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">
+        <ImportFlow today={today} />
         {action('Back up', Download, async () => {
           if (await backUp()) toast('Backup saved');
         })}

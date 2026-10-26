@@ -133,3 +133,27 @@ test('rejects a file that is not a backup', async ({ page }) => {
   await page.getByLabel('Backup file').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"a":1}') });
   await expect(page.getByRole('status')).toContainText('isn’t a Paisa backup');
 });
+
+test('import a bank statement, learn a category, skip re-imports', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByLabel('Statement file').setInputFiles('e2e/fixtures/hdfc.csv');
+
+  const sheet = page.getByRole('dialog', { name: 'Review import' });
+  await expect(sheet.getByText('Swiggy')).toBeVisible();
+  await expect(sheet.getByLabel('Category for Swiggy')).toHaveValue('food');
+  await expect(sheet.getByLabel('Category for Uber')).toHaveValue('transport');
+  await expect(sheet.getByText('Acme')).toHaveCount(0); // salary is money in, not an expense
+  await sheet.getByLabel('Category for Uber').selectOption('shopping');
+  await sheet.getByRole('button', { name: 'Import 2 · ₹1,599.50' }).click();
+  await expect(page.getByRole('status')).toContainText('Imported 2 expenses');
+
+  // Same file again: nothing new.
+  await page.getByLabel('Statement file').setInputFiles('e2e/fixtures/hdfc.csv');
+  await expect(sheet.getByText('Everything in this file is already in Paisa.')).toBeVisible();
+  await sheet.getByRole('button', { name: 'Cancel' }).click();
+
+  // Next month's statement: Uber now defaults to the category picked last time.
+  await page.getByLabel('Statement file').setInputFiles('e2e/fixtures/hdfc-next.csv');
+  await expect(sheet.getByLabel('Category for Uber')).toHaveValue('shopping');
+});

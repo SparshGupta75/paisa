@@ -30,7 +30,7 @@ export function App() {
           <Empty emoji="📊" title="Coming soon" message="Trends and breakdowns appear here." />
         </Screen>
       ) : null}
-      {tab === 'settings' ? <Settings /> : null}
+      {tab === 'settings' ? <Settings today={today} /> : null}
       <TabBar tab={tab} onTab={setTab} onAdd={() => setAdding(true)} />
       <AddSheet open={adding || editing !== null} onClose={close} today={today} editing={editing} />
     </ToastProvider>

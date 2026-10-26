@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
-import { db, newId, type Txn } from '../../db';
+import { db, learnRule, newId, type Txn } from '../../db';
 import { useCategories } from '../../hooks';
 import { addDays, dayLabel } from '../../lib/dates';
 import { formatINR, parseAmount } from '../../lib/money';
@@ -85,6 +85,8 @@ export function AddSheet({
     const fields = { amount, date, categoryId: category?.id ?? 'other', note: note.trim(), updatedAt: now };
     if (editing) {
       await db.txns.update(editing.id, fields);
+      // Re-categorising an imported expense teaches Paisa for next time.
+      if (editing.merchant && fields.categoryId !== editing.categoryId) await learnRule(editing.merchant, fields.categoryId);
       onClose();
       toast('Saved');
       return;
