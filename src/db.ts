@@ -8,6 +8,8 @@ export interface Category {
   emoji: string;
   color: string;
   order: number;
+  /** Optional monthly limit in paise. */
+  budget?: number | null;
 }
 
 export interface Txn {
@@ -52,4 +54,13 @@ export function newId(): string {
 
 export async function setSetting(key: string, value: unknown): Promise<void> {
   await db.settings.put({ key, value });
+}
+
+/** Deletes a category, moving its expenses to "Other". */
+export async function deleteCategory(id: string): Promise<void> {
+  if (id === 'other') return;
+  await db.transaction('rw', db.categories, db.txns, async () => {
+    await db.txns.where('categoryId').equals(id).modify({ categoryId: 'other' });
+    await db.categories.delete(id);
+  });
 }

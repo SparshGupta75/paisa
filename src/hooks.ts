@@ -16,7 +16,13 @@ export function useToday(): string {
 }
 
 export function useCategories(): Category[] {
-  return useLiveQuery(() => db.categories.orderBy('order').toArray(), []) ?? [];
+  return (
+    useLiveQuery(async () => {
+      const categories = await db.categories.orderBy('order').toArray();
+      // "Other" is the catch-all, so it always comes last.
+      return [...categories.filter((c) => c.id !== 'other'), ...categories.filter((c) => c.id === 'other')];
+    }, []) ?? []
+  );
 }
 
 export function useCategoryMap(): Map<string, Category> {

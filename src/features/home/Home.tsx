@@ -92,18 +92,25 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
           <Card className="space-y-3 p-4">
             {top.map(([id, amount]) => {
               const category = categories.get(id);
+              const limit = category?.budget ?? null;
+              const over = limit !== null && amount > limit;
+              // With a limit, the bar shows progress toward it; otherwise share of the largest category.
+              const width = limit ? Math.min(100, (amount / limit) * 100) : (amount / largest) * 100;
               return (
                 <div key={id}>
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">
                       {category?.emoji} {category?.name ?? 'Other'}
                     </span>
-                    <span className="tabular font-semibold">{formatINR(amount)}</span>
+                    <span className={`tabular font-semibold ${over ? 'text-red-500' : ''}`}>
+                      {formatINR(amount)}
+                      {limit ? <span className="font-normal text-zinc-500"> / {formatINR(limit)}</span> : null}
+                    </span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
                     <div
                       className="h-full rounded-full"
-                      style={{ width: `${(amount / largest) * 100}%`, backgroundColor: category?.color ?? '#71717a' }}
+                      style={{ width: `${width}%`, backgroundColor: over ? '#ef4444' : (category?.color ?? '#71717a') }}
                     />
                   </div>
                 </div>

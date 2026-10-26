@@ -70,3 +70,29 @@ test('monthly budget drives safe-to-spend', async ({ page }) => {
   await expect(page.getByText('Top categories')).toBeVisible();
   await expect(page.getByText(/₹250 of ₹31,000/)).toBeVisible();
 });
+
+test('manage categories in settings', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Add category' }).click();
+  await page.getByLabel('Emoji').fill('🐶');
+  await page.getByLabel('Category name').fill('Pets');
+  await page.getByLabel('Monthly limit').fill('2000');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByRole('button', { name: /Pets/ })).toContainText('₹2,000/mo');
+
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await page.getByLabel('Quick add').fill('vet 2500');
+  await page.getByRole('dialog').getByRole('button', { name: /Pets/ }).click();
+  await page.getByRole('button', { name: 'Add ₹2,500' }).click();
+  await page.getByRole('tab', { name: 'Home' }).click();
+  await expect(page.getByText('/ ₹2,000')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /Pets/ }).click();
+  await page.getByRole('button', { name: 'Delete category' }).click();
+  await page.getByRole('button', { name: /Tap again/ }).click();
+  await expect(page.getByRole('button', { name: /Pets/ })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Activity' }).click();
+  await expect(page.getByText('Other', { exact: true })).toBeVisible();
+});

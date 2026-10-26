@@ -6,6 +6,7 @@ import { ToastProvider } from './components/Toast';
 import { Activity } from './features/activity/Activity';
 import { AddSheet } from './features/add/AddSheet';
 import { Home } from './features/home/Home';
+import { Settings } from './features/settings/Settings';
 import type { Txn } from './db';
 import { useToday } from './hooks';
 
@@ -29,11 +30,7 @@ export function App() {
           <Empty emoji="📊" title="Coming soon" message="Trends and breakdowns appear here." />
         </Screen>
       ) : null}
-      {tab === 'settings' ? (
-        <Screen title="Settings">
-          <Empty emoji="⚙️" title="Coming soon" message="Budgets, categories and backups live here." />
-        </Screen>
-      ) : null}
+      {tab === 'settings' ? <Settings /> : null}
       <TabBar tab={tab} onTab={setTab} onAdd={() => setAdding(true)} />
       <AddSheet open={adding || editing !== null} onClose={close} today={today} editing={editing} />
     </ToastProvider>
