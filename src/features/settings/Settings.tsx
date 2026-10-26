@@ -1,12 +1,14 @@
 import { ChevronRight, Plus } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 
 import { Card, Screen } from '../../components/Screen';
-import type { Category } from '../../db';
+import { db, type Category } from '../../db';
 import { useCategories, useSetting } from '../../hooks';
 import { formatINR } from '../../lib/money';
 import { BudgetSheet } from '../budget/BudgetSheet';
 import { CategorySheet } from './CategorySheet';
+import { DataSection } from './DataSection';
 
 function Row({ label, value, onPress, leading }: { label: string; value?: string; onPress: () => void; leading?: React.ReactNode }) {
   return (
@@ -24,6 +26,7 @@ export function Settings() {
   const budget = useSetting<number | null>('monthlyBudget', null);
   const [editingBudget, setEditingBudget] = useState(false);
   const [editing, setEditing] = useState<Category | 'new' | null>(null);
+  const expenseCount = useLiveQuery(() => db.txns.count(), []) ?? 0;
 
   return (
     <Screen title="Settings">
@@ -59,6 +62,8 @@ export function Settings() {
           Add category
         </button>
       </Card>
+
+      <DataSection expenseCount={expenseCount} />
 
       <p className="mt-8 text-center text-xs text-zinc-400">Paisa · your data stays on this device</p>
 

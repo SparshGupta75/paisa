@@ -96,3 +96,40 @@ test('manage categories in settings', async ({ page }) => {
   await page.getByRole('tab', { name: 'Activity' }).click();
   await expect(page.getByText('Other', { exact: true })).toBeVisible();
 });
+
+test('back up, then restore the backup', async ({ page }) => {
+  // Headless WebKit has no share sheet (share() never settles), so use the download path.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'canShare', { value: undefined }));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await page.getByLabel('Quick add').fill('chai 40');
+  await page.getByLabel('Quick add').press('Enter');
+  await expect(page.getByText('Back up your expenses')).toBeVisible();
+
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Back up' }).click()]);
+  expect(download.suggestedFilename()).toMatch(/^paisa-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  const path = await download.path();
+  await expect(page.getByText(/Backed up today/)).toBeVisible();
+
+  // Change the data, then restore: the backup's version wins.
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await page.getByLabel('Quick add').fill('uber 320');
+  await page.getByLabel('Quick add').press('Enter');
+  await page.getByLabel('Backup file').setInputFiles(path);
+  await expect(page.getByText('Restore this backup?')).toBeVisible();
+  await expect(page.getByText(/1 expense \(₹40\)/)).toBeVisible();
+  await page.getByRole('button', { name: 'Replace with backup' }).click();
+  await expect(page.getByRole('status')).toContainText('Backup restored');
+
+  await page.getByRole('tab', { name: 'Activity' }).click();
+  await expect(page.getByText('chai')).toBeVisible();
+  await expect(page.getByText('uber')).toHaveCount(0);
+});
+
+test('rejects a file that is not a backup', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByLabel('Backup file').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{"a":1}') });
+  await expect(page.getByRole('status')).toContainText('isn’t a Paisa backup');
+});

@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, LifeBuoy } from 'lucide-react';
 import { useState } from 'react';
 
 import { Card, Empty, Screen } from '../../components/Screen';
@@ -10,12 +10,19 @@ import { fromISODate, monthKey } from '../../lib/dates';
 import { formatINR } from '../../lib/money';
 import { useAllTxns } from '../activity/Activity';
 import { BudgetSheet } from '../budget/BudgetSheet';
+import { useToast } from '../../components/Toast';
+import { backUp } from '../settings/backupActions';
+import { lastBackupLabel } from '../settings/DataSection';
+
+const BACKUP_NUDGE_DAYS = 14;
 
 export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => void }) {
   const txns = useAllTxns();
   const categories = useCategoryMap();
   const budget = useSetting<number | null>('monthlyBudget', null);
   const [editingBudget, setEditingBudget] = useState(false);
+  const lastBackupAt = useSetting<number | null>('lastBackupAt', null);
+  const toast = useToast();
   if (txns === undefined) return <Screen title="Paisa">{null}</Screen>;
 
   const month = txns.filter((txn) => monthKey(txn.date) === monthKey(today));
@@ -74,6 +81,22 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
           </button>
         </Card>
       )}
+
+      {txns.length > 0 && (!lastBackupAt || Date.now() - lastBackupAt > BACKUP_NUDGE_DAYS * 86_400_000) ? (
+        <button
+          onClick={async () => {
+            if (await backUp()) toast('Backup saved');
+          }}
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-amber-500/10 px-4 py-3 text-left"
+        >
+          <LifeBuoy size={20} className="shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="flex-1 text-sm">
+            <span className="block font-semibold">Back up your expenses</span>
+            <span className="text-zinc-500">{lastBackupLabel(lastBackupAt)}</span>
+          </span>
+          <ChevronRight size={18} className="text-zinc-400" />
+        </button>
+      ) : null}
 
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Card className="p-4">
