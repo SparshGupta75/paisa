@@ -50,6 +50,20 @@ button:not(:disabled, .no-press):active {
   }
 }
 
+/* A row that just changed glows briefly, so you can see what happened. */
+.row-flash {
+  animation: row-flash 1.8s ease-out;
+}
+@keyframes row-flash {
+  0%,
+  35% {
+    background-color: rgb(16 185 129 / 0.16);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   .sheet-motion,

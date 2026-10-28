@@ -62,14 +62,14 @@ test('edit, delete with undo, and search', async ({ page }) => {
 
 test('monthly budget drives safe-to-spend', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'Set a monthly budget' }).click();
-  await page.getByLabel('Budget amount').fill('31000');
-  await page.getByRole('button', { name: 'Save budget' }).click();
-  await expect(page.getByLabel('Safe to spend today')).toBeVisible();
-
   await page.getByRole('button', { name: 'Add expense' }).click();
   await page.getByLabel('Quick add').fill('lunch 250');
   await page.getByLabel('Quick add').press('Enter');
+
+  await shown(page).getByRole('button', { name: 'Set a monthly budget' }).click();
+  await page.getByLabel('Budget amount').fill('31000');
+  await page.getByRole('button', { name: 'Save budget' }).click();
+  await expect(page.getByLabel('Safe to spend today')).toBeVisible();
   await expect(shown(page).getByText('Top categories')).toBeVisible();
   await expect(shown(page).getByText(/₹250 of ₹31,000/)).toBeVisible();
 });
@@ -81,7 +81,7 @@ test('manage categories in settings', async ({ page }) => {
   await page.getByLabel('Emoji').fill('🐶');
   await page.getByLabel('Category name').fill('Pets');
   await page.getByLabel('Monthly limit').fill('2000');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Create category' }).click();
   await expect(page.getByRole('button', { name: /Pets/ })).toContainText('₹2,000/mo');
 
   await page.getByRole('button', { name: 'Add expense' }).click();
@@ -123,7 +123,7 @@ test('back up, then restore the backup', async ({ page }) => {
   await expect(page.getByText('Restore this backup?')).toBeVisible();
   await expect(page.getByText(/1 expense \(₹40\)/)).toBeVisible();
   await page.getByRole('button', { name: 'Replace with backup' }).click();
-  await expect(page.getByRole('status')).toContainText('Backup restored');
+  await expect(page.getByRole('status')).toContainText('Restored 1 expense');
 
   await page.getByRole('tab', { name: 'Activity' }).click();
   await expect(shown(page).getByText('chai')).toBeVisible();
@@ -212,4 +212,36 @@ test('money in and splits: spent 1000, got 200, split 200', async ({ page }) => 
   await expect(page.getByText('Your share ₹120')).toBeVisible();
   await page.getByRole('button', { name: 'Add ₹300' }).click();
   await expect(page.getByRole('status')).toContainText('your share ₹120');
+});
+
+test('every change can be taken back', async ({ page }) => {
+  await page.goto('/');
+  // First run says what to do next.
+  await expect(shown(page).getByRole('button', { name: 'Add an expense' })).toBeVisible();
+
+  // Add → Undo.
+  await page.getByRole('button', { name: 'Add expense' }).click();
+  await page.getByLabel('Quick add').fill('chai 40');
+  await page.getByLabel('Quick add').press('Enter');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(shown(page).getByText('Welcome to Paisa')).toBeVisible();
+
+  // Import → Undo removes the whole import.
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await page.getByLabel('Statement file').setInputFiles('e2e/fixtures/hdfc.csv');
+  await page.getByRole('dialog', { name: 'Review import' }).getByRole('button', { name: /^Import 3/ }).click();
+  await expect(page.getByRole('status')).toContainText('Imported 3 entries');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await page.getByRole('tab', { name: 'Activity' }).click();
+  await expect(shown(page).getByText('Nothing here yet')).toBeVisible();
+
+  // Budget → Undo (from Settings).
+  await page.getByRole('tab', { name: 'Settings' }).click();
+  await shown(page).getByRole('button', { name: /Monthly budget/ }).click();
+  await page.getByLabel('Budget amount').fill('30000');
+  await page.getByRole('button', { name: 'Save budget' }).click();
+  await expect(page.getByRole('status')).toContainText('Budget set to ₹30,000 a month');
+  await expect(shown(page).getByRole('button', { name: /Monthly budget/ })).toContainText('₹30,000');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(shown(page).getByRole('button', { name: /Monthly budget/ })).toContainText('Not set');
 });

@@ -16,14 +16,40 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
   return <section className={`overflow-hidden rounded-2xl bg-white dark:bg-zinc-900 ${className}`}>{children}</section>;
 }
 
-export function Empty({ emoji, title, message }: { emoji: string; title: string; message: string }) {
+/** An empty state that says what to do next, with buttons for it when there are any. */
+export function Empty({
+  emoji,
+  title,
+  message,
+  actions = [],
+}: {
+  emoji: string;
+  title: string;
+  message: string;
+  actions?: { label: string; onPress: () => void; primary?: boolean }[];
+}) {
   return (
-    <div className="flex flex-col items-center px-8 py-16 text-center">
+    <div className="flex flex-col items-center px-8 py-14 text-center">
       <span className="text-5xl" aria-hidden>
         {emoji}
       </span>
       <p className="mt-4 text-lg font-semibold">{title}</p>
       <p className="mt-1 text-sm text-zinc-500">{message}</p>
+      {actions.length ? (
+        <div className="mt-5 flex w-full max-w-xs flex-col gap-2">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              onClick={action.onPress}
+              className={`h-11 rounded-xl font-semibold ${
+                action.primary ? 'bg-emerald-500 text-white' : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+              }`}
+            >
+              {action.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -11,13 +11,22 @@ import { formatINR } from '../../lib/money';
 import { receivedOf, spentOf } from '../../lib/totals';
 import { useAllTxns } from '../activity/Activity';
 import { BudgetSheet } from '../budget/BudgetSheet';
+import { useFeedback } from '../../components/Feedback';
+import { InstallHint } from '../../components/Pwa';
 import { useToast } from '../../components/Toast';
 import { backUp } from '../settings/backupActions';
 import { lastBackupLabel } from '../settings/DataSection';
 
 const BACKUP_NUDGE_DAYS = 14;
 
-export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => void }) {
+/** "1 Nov": when this month's budget starts over. */
+function resetDate(today: string): string {
+  const date = fromISODate(today);
+  return new Date(date.getFullYear(), date.getMonth() + 1, 1).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+}
+
+export function Home({ today, onEdit, onAdd }: { today: string; onEdit: (txn: Txn) => void; onAdd: () => void }) {
+  const { goTo } = useFeedback();
   const txns = useAllTxns();
   const categories = useCategoryMap();
   const budget = useSetting<number | null>('monthlyBudget', null);
@@ -44,8 +53,31 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
 
   const barColor = !status ? '' : status.used > 1 ? 'bg-red-500' : status.used > 0.8 ? 'bg-amber-500' : 'bg-emerald-500';
 
+  // First run: one clear next step, nothing else competing for attention.
+  if (txns.length === 0) {
+    return (
+      <Screen title="Paisa">
+        <Card>
+          <Empty
+            emoji="👋"
+            title="Welcome to Paisa"
+            message="Add what you spend in a couple of taps (try “chai 40”), or bring in a month at once from your bank statement."
+            actions={[
+              { label: 'Add an expense', onPress: onAdd, primary: true },
+              { label: 'Import a bank statement', onPress: () => goTo('settings') },
+            ]}
+          />
+        </Card>
+        <div className="mt-3">
+          <InstallHint />
+        </div>
+      </Screen>
+    );
+  }
+
   return (
     <Screen title="Paisa">
+      <InstallHint />
       {status && budget ? (
         <Card className="p-5">
           <p className="text-sm font-medium text-zinc-500">Safe to spend today</p>
@@ -55,10 +87,15 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
           >
             {formatINR(status.leftToday)}
           </p>
+          {spentToday > 0 && status.perDay > 0 ? (
+            <p className="tabular text-sm text-zinc-500">
+              {formatINR(Math.min(spentToday, status.perDay))} of today’s {formatINR(status.perDay)} used
+            </p>
+          ) : null}
           <p className="mt-1 text-sm text-zinc-500">
             {status.remaining >= 0
-              ? `${formatINR(status.remaining)} left · ${status.daysLeft} ${status.daysLeft === 1 ? 'day' : 'days'} to go`
-              : `${formatINR(-status.remaining)} over budget`}
+              ? `${formatINR(status.remaining)} left · resets ${resetDate(today)} (${status.daysLeft} ${status.daysLeft === 1 ? 'day' : 'days'})`
+              : `${formatINR(-status.remaining)} over budget · resets ${resetDate(today)}`}
           </p>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(100, status.used * 100)}%` }} />
@@ -157,6 +194,11 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
                       style={{ width: `${width}%`, backgroundColor: over ? '#ef4444' : (category?.color ?? '#71717a') }}
                     />
                   </div>
+                  {limit ? (
+                    <p className={`tabular mt-1 text-xs ${over ? 'text-red-500' : 'text-zinc-500'}`}>
+                      {over ? `${formatINR(amount - limit)} over this month’s limit` : `${formatINR(limit - amount)} left this month`}
+                    </p>
+                  ) : null}
                 </div>
               );
             })}
@@ -167,7 +209,15 @@ export function Home({ today, onEdit }: { today: string; onEdit: (txn: Txn) => v
       <h2 className="mt-6 mb-1.5 px-1 text-sm font-medium text-zinc-500">Recent</h2>
       {txns.length === 0 ? (
         <Card>
-          <Empty emoji="👋" title="Welcome to Paisa" message="Tap + and type “chai 40”. That’s it." />
+          <Empty
+            emoji="👋"
+            title="Welcome to Paisa"
+            message="Add what you spend in a couple of taps (try “chai 40”), or bring in a month at once from your bank statement."
+            actions={[
+              { label: 'Add an expense', onPress: onAdd, primary: true },
+              { label: 'Import a bank statement', onPress: () => goTo('settings') },
+            ]}
+          />
         </Card>
       ) : (
         <Card className="divide-y divide-zinc-100 dark:divide-zinc-800">

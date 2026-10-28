@@ -5,6 +5,7 @@ import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { FALLBACK, db, deleteCategory, newId, type Category } from '../../db';
 import { firstGrapheme } from '../../lib/emoji';
+import { saveErrorMessage } from '../../lib/errors';
 import { parseAmount } from '../../lib/money';
 
 const COLORS = ['#f97316', '#22c55e', '#3b82f6', '#ec4899', '#eab308', '#8b5cf6', '#ef4444', '#06b6d4', '#6366f1', '#71717a'];
@@ -51,10 +52,21 @@ export function CategorySheet({
   const save = async () => {
     if (!canSave) return;
     const fields = { name: name.trim(), emoji: emoji || '🏷️', color, budget: kind === 'income' ? null : budget };
-    if (category) await db.categories.update(category.id, fields);
-    else await db.categories.add({ id: newId(), order: nextOrder, ...fields, ...(kind === 'income' ? { kind } : {}) });
-    onClose();
-    toast(category ? 'Category saved' : `Added ${fields.emoji} ${fields.name}`);
+    try {
+      if (category) {
+        const before = category;
+        await db.categories.update(category.id, fields);
+        onClose();
+        toast(`Saved ${fields.emoji} ${fields.name}`, { label: 'Undo', onPress: () => void db.categories.put(before) });
+      } else {
+        const id = newId();
+        await db.categories.add({ id, order: nextOrder, ...fields, ...(kind === 'income' ? { kind } : {}) });
+        onClose();
+        toast(`Added ${fields.emoji} ${fields.name}`, { label: 'Undo', onPress: () => void db.categories.delete(id) });
+      }
+    } catch (error) {
+      toast(saveErrorMessage(error), { error: true });
+    }
   };
 
   const remove = async () => {
@@ -63,9 +75,24 @@ export function CategorySheet({
       setConfirmingDelete(true);
       return;
     }
-    await deleteCategory(category.id);
+    const deleted = category;
+    const moved = await db.txns.where('categoryId').equals(deleted.id).primaryKeys();
+    try {
+      await deleteCategory(deleted.id);
+    } catch (error) {
+      toast(saveErrorMessage(error), { error: true });
+      return;
+    }
     onClose();
-    toast(`Deleted ${category.name}; its expenses moved to Other`);
+    const fallbackName = kind === 'income' ? 'Other income' : 'Other';
+    toast(moved.length ? `Deleted ${deleted.name} · ${moved.length} moved to ${fallbackName}` : `Deleted ${deleted.name}`, {
+      label: 'Undo',
+      onPress: () =>
+        void db.transaction('rw', db.categories, db.txns, async () => {
+          await db.categories.put(deleted);
+          await db.txns.where('id').anyOf(moved).modify({ categoryId: deleted.id });
+        }),
+    });
   };
 
   return (
@@ -75,9 +102,7 @@ export function CategorySheet({
           Cancel
         </button>
         <span className="font-semibold">{category ? 'Edit category' : 'New category'}</span>
-        <button onClick={() => void save()} disabled={!canSave} className="w-16 text-right font-semibold text-emerald-600 disabled:text-zinc-400">
-          Save
-        </button>
+        <span className="w-16" />
       </div>
 
       <div className="space-y-4 overflow-y-auto px-5 pt-5 pb-6">
@@ -131,6 +156,14 @@ export function CategorySheet({
           {budgetInvalid ? <span className="mt-1 block px-1 text-sm text-red-500">Enter an amount like 2000</span> : null}
         </label>
         )}
+
+        <button
+          onClick={() => void save()}
+          disabled={!canSave}
+          className="h-14 w-full rounded-2xl bg-emerald-500 text-lg font-semibold text-white disabled:bg-zinc-300 disabled:text-zinc-500 dark:disabled:bg-zinc-800"
+        >
+          {category ? 'Save' : 'Create category'}
+        </button>
 
         {category && category.id !== FALLBACK.expense && category.id !== FALLBACK.income ? (
           <button onClick={() => void remove()} className="h-12 w-full rounded-2xl bg-red-500/10 font-medium text-red-500">

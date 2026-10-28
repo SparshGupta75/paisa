@@ -79,9 +79,14 @@ export function Activity({
         </p>
       ) : null}
       {allTxns.length === 0 ? (
-        <Empty emoji="🧾" title="No expenses yet" message="Tap + to add your first one. Try typing “chai 40”." />
+        <Empty emoji="🧾" title="Nothing here yet" message="Tap + to add an expense or money in. Try typing “chai 40”." />
       ) : txns.length === 0 ? (
-        <Empty emoji="🔍" title="No matches" message={`Nothing found for “${query.trim()}”.`} />
+        <Empty
+          emoji="🔍"
+          title="No matches"
+          message={`Nothing found for “${query.trim()}”. Search looks at notes, categories and amounts.`}
+          actions={[{ label: 'Clear search', onPress: () => setQuery('') }]}
+        />
       ) : (
         <div className="space-y-5">
           {[...days].map(([date, dayTxns]) => (

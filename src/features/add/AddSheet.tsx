@@ -1,11 +1,13 @@
 import { CalendarDays, Delete, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { useFeedback } from '../../components/Feedback';
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { FALLBACK, db, isIncome, learnRule, newId, type Txn } from '../../db';
 import { useCategoriesOf } from '../../hooks';
 import { addDays, dayLabel } from '../../lib/dates';
+import { saveErrorMessage } from '../../lib/errors';
 import { formatINR, parseAmount } from '../../lib/money';
 import { quickParse, shareOf } from '../../lib/quickParse';
 
@@ -43,6 +45,7 @@ export function AddSheet({
   editing?: Txn | null;
 }) {
   const toast = useToast();
+  const { flash } = useFeedback();
   const [kind, setKind] = useState<Kind>('expense');
   const [pickedKind, setPickedKind] = useState(false);
   const categories = useCategoriesOf(kind);
@@ -150,27 +153,53 @@ export function AddSheet({
       share: share ?? undefined,
       updatedAt: now,
     };
-    if (editing) {
-      await db.txns.update(editing.id, fields);
-      // Re-categorising an imported entry teaches Paisa for next time.
-      if (editing.merchant && fields.categoryId !== editing.categoryId) await learnRule(editing.merchant, fields.categoryId);
-      onClose();
-      toast('Saved');
-      return;
-    }
-    await db.txns.add({ id: newId(), createdAt: now, ...fields });
-    onClose();
     const what = kind === 'income' ? `+${formatINR(amount)}` : formatINR(amount);
-    toast(share ? `Added ${what} · your share ${formatINR(share)}` : `Added ${what} · ${category?.name ?? 'Other'}`);
+    const when = date === today ? '' : ` · ${dayLabel(date, today)}`;
+    try {
+      if (editing) {
+        const before = editing;
+        await db.txns.update(editing.id, fields);
+        // Re-categorising an imported entry teaches Paisa for next time.
+        if (editing.merchant && fields.categoryId !== editing.categoryId) await learnRule(editing.merchant, fields.categoryId);
+        onClose();
+        flash([before.id]);
+        toast(`Saved ${fields.note || category?.name || 'entry'} · ${what}${when}`, {
+          label: 'Undo',
+          onPress: () => void db.txns.put(before).then(() => flash([before.id])),
+        });
+        return;
+      }
+      const id = newId();
+      await db.txns.add({ id, createdAt: now, ...fields });
+      onClose();
+      flash([id]);
+      toast(share ? `Added ${what} · your share ${formatINR(share)}${when}` : `Added ${what} · ${category?.name ?? 'Other'}${when}`, {
+        label: 'Undo',
+        onPress: () => void db.txns.delete(id),
+      });
+    } catch (error) {
+      // Keep the sheet open with everything typed, and say what to do.
+      saving.current = false;
+      toast(saveErrorMessage(error), { error: true, actions: [{ label: 'Try again', onPress: () => void save() }] });
+    }
   };
 
   const remove = async () => {
     if (!editing || saving.current) return;
     saving.current = true;
     const deleted = editing;
-    await db.txns.delete(deleted.id);
+    try {
+      await db.txns.delete(deleted.id);
+    } catch (error) {
+      saving.current = false;
+      toast(saveErrorMessage(error), { error: true });
+      return;
+    }
     onClose();
-    toast(`Deleted ${formatINR(deleted.amount)}`, { label: 'Undo', onPress: () => void db.txns.put(deleted) });
+    toast(`Deleted ${deleted.note || 'entry'} · ${formatINR(deleted.amount)}`, {
+      label: 'Undo',
+      onPress: () => void db.txns.put(deleted).then(() => flash([deleted.id])),
+    });
   };
 
   const chip = (selected: boolean) =>

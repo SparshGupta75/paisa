@@ -1,11 +1,12 @@
 import { Download, FileSpreadsheet, Upload } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Card } from '../../components/Screen';
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { useSetting } from '../../hooks';
-import { MAX_BACKUP_BYTES, describeBackup, parseBackup, type Backup } from '../../lib/backup';
+import { db } from '../../db';
+import { MAX_BACKUP_BYTES, buildBackup, describeBackup, parseBackup, type Backup } from '../../lib/backup';
 import { ImportFlow } from '../import/ImportFlow';
 import { backUp, exportCSV, restore } from './backupActions';
 
@@ -20,6 +21,10 @@ export function DataSection({ expenseCount, today }: { expenseCount: number; tod
   const lastBackupAt = useSetting<number | null>('lastBackupAt', null);
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<Backup | null>(null);
+  const [protectedStorage, setProtectedStorage] = useState<boolean | null>(null);
+  useEffect(() => {
+    void navigator.storage?.persisted?.().then(setProtectedStorage, () => setProtectedStorage(null));
+  }, []);
 
   const action = (label: string, Icon: typeof Download, onPress: () => void) => (
     <button onClick={onPress} className="flex w-full items-center gap-3 px-4 py-3.5 text-left font-medium active:bg-zinc-100 dark:active:bg-zinc-800">
@@ -56,6 +61,8 @@ export function DataSection({ expenseCount, today }: { expenseCount: number; tod
       </Card>
       <p className="mt-1.5 px-1 text-sm text-zinc-500">
         {lastBackupLabel(lastBackupAt)}. Your data lives only on this device; removing Paisa from your Home Screen deletes it.
+        {protectedStorage === true ? ' The browser has agreed to keep it even when space runs low.' : null}
+        {protectedStorage === false ? ' The browser may clear it if space runs low, so back up now and then.' : null}
       </p>
       <input
         ref={fileInput}
@@ -76,15 +83,21 @@ export function DataSection({ expenseCount, today }: { expenseCount: number; tod
             <p className="mt-2 text-zinc-500">
               It has {describeBackup(pending)} from{' '}
               {new Date(pending.exportedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. It replaces
-              everything on this device ({expenseCount} {expenseCount === 1 ? 'expense' : 'expenses'} now). This can’t be undone.
+              everything on this device ({expenseCount} {expenseCount === 1 ? 'entry' : 'entries'} now). You can undo it right after.
             </p>
             <button
               onClick={async () => {
+                // Keep what's here now, so the restore can be taken back.
+                const [categories, txns, settings] = await Promise.all([db.categories.toArray(), db.txns.toArray(), db.settings.toArray()]);
+                const previous = buildBackup({ categories, txns, settings });
                 try {
                   await restore(pending);
-                  toast('Backup restored');
+                  toast(`Restored ${describeBackup(pending)}`, {
+                    label: 'Undo',
+                    onPress: () => void restore(previous).then(() => toast('Back to how it was before the restore')),
+                  });
                 } catch {
-                  toast('Couldn’t restore that backup. Nothing was changed.');
+                  toast('Couldn’t restore that backup. Nothing was changed.', { error: true });
                 }
                 setPending(null);
               }}

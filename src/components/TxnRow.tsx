@@ -1,8 +1,10 @@
 import type { Category, Txn } from '../db';
 import { formatINR } from '../lib/money';
+import { useFeedback } from './Feedback';
 
 export function TxnRow({ txn, category, onPress }: { txn: Txn; category?: Category; onPress?: () => void }) {
   const income = txn.type === 'income';
+  const justChanged = useFeedback().flashed.has(txn.id);
   const title = txn.note || category?.name || (income ? 'Money in' : 'Expense');
   const details = [txn.note && category ? category.name : null, txn.share ? `Split · your share ${formatINR(txn.share)}` : null]
     .filter(Boolean)
@@ -10,7 +12,7 @@ export function TxnRow({ txn, category, onPress }: { txn: Txn; category?: Catego
   return (
     <button
       onClick={onPress}
-      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 active:bg-zinc-100 dark:active:bg-zinc-800"
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors duration-150 active:bg-zinc-100 dark:active:bg-zinc-800 ${justChanged ? 'row-flash' : ''}`}
     >
       <span
         className="flex size-10 shrink-0 items-center justify-center rounded-full text-lg"

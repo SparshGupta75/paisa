@@ -1,12 +1,14 @@
 import { FileUp } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import { useFeedback } from '../../components/Feedback';
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { db, learnRule, newId, setSetting } from '../../db';
 import { useCategories } from '../../hooks';
 import { parseCSV } from '../../lib/csv';
 import { dayLabel } from '../../lib/dates';
+import { saveErrorMessage } from '../../lib/errors';
 import { formatINR } from '../../lib/money';
 import { categorize } from '../../lib/rules';
 import { cleanMerchant, detectColumns, extractTransactions, importKeys, incomeCategoryFor, type ColumnMap } from '../../lib/statement';
@@ -38,6 +40,7 @@ const emptyMap: ColumnMap = { date: -1, description: -1, debit: -1, credit: -1, 
 
 export function ImportFlow({ today }: { today: string }) {
   const toast = useToast();
+  const { flash, goTo } = useFeedback();
   const categories = useCategories();
   const fileInput = useRef<HTMLInputElement>(null);
   const [mapping, setMapping] = useState<(Pending & { map: ColumnMap }) | null>(null);
@@ -138,9 +141,11 @@ export function ImportFlow({ today }: { today: string }) {
     setImporting(true);
     const chosen = preview.rows.filter((r) => r.include);
     const now = Date.now();
+    const ids = chosen.map(() => newId());
+    try {
     await db.txns.bulkAdd(
       chosen.map((r, i) => ({
-        id: newId(),
+        id: ids[i]!,
         amount: r.amount,
         ...(r.type ? { type: r.type } : {}),
         date: r.date,
@@ -156,9 +161,24 @@ export function ImportFlow({ today }: { today: string }) {
       const row = preview.rows.find((r) => r.merchant === merchant);
       if (row) await learnRule(merchant, row.categoryId);
     }
+    } catch (error) {
+      // bulkAdd is all-or-nothing, so nothing half-imported is left behind; the review stays open to retry.
+      setImporting(false);
+      toast(saveErrorMessage(error), { error: true });
+      return;
+    }
     setPreview(null);
     setImporting(false);
-    toast(`Imported ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'}`);
+    flash(ids);
+    const outTotal = chosen.filter((r) => r.type !== 'income').reduce((sum, r) => sum + r.amount, 0);
+    const inTotal = chosen.filter((r) => r.type === 'income').reduce((sum, r) => sum + r.amount, 0);
+    const totals = [outTotal ? formatINR(outTotal) : '', inTotal ? `+${formatINR(inTotal)}` : ''].filter(Boolean).join(' · ');
+    toast(`Imported ${chosen.length} ${chosen.length === 1 ? 'entry' : 'entries'} · ${totals}`, {
+      actions: [
+        { label: 'View', onPress: () => goTo('activity') },
+        { label: 'Undo', onPress: () => void db.txns.bulkDelete(ids) },
+      ],
+    });
   };
 
   const included = preview?.rows.filter((r) => r.include) ?? [];

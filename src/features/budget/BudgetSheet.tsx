@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Sheet } from '../../components/Sheet';
 import { useToast } from '../../components/Toast';
 import { setSetting } from '../../db';
+import { saveErrorMessage } from '../../lib/errors';
 import { formatINR, parseAmount } from '../../lib/money';
 
 /** Sets (or clears) a monthly budget stored under `settingKey`. */
@@ -29,9 +30,18 @@ export function BudgetSheet({
   const amount = parseAmount(text);
 
   const save = async (value: number | null) => {
-    await setSetting(settingKey, value);
+    const before = current;
+    try {
+      await setSetting(settingKey, value);
+    } catch (error) {
+      toast(saveErrorMessage(error), { error: true });
+      return;
+    }
     onClose();
-    toast(value ? `Budget set to ${formatINR(value)}` : 'Budget removed');
+    toast(value ? `Budget set to ${formatINR(value)} a month` : 'Budget removed', {
+      label: 'Undo',
+      onPress: () => void setSetting(settingKey, before),
+    });
   };
 
   return (

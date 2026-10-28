@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 
 import { TabBar, type Tab } from './components/TabBar';
+import { FeedbackProvider } from './components/Feedback';
+import { PwaUpdates } from './components/Pwa';
 import { ToastProvider } from './components/Toast';
 import { Activity } from './features/activity/Activity';
 import { AddSheet } from './features/add/AddSheet';
@@ -44,13 +46,16 @@ export function App() {
   );
 
   return (
+    <FeedbackProvider goTo={switchTab}>
     <ToastProvider>
-      {pane('home', <Home today={today} onEdit={setEditing} />)}
+      <PwaUpdates />
+      {pane('home', <Home today={today} onEdit={setEditing} onAdd={() => setAdding(true)} />)}
       {pane('activity', <Activity today={today} onEdit={setEditing} query={query} setQuery={setQuery} />)}
       {pane('insights', <Insights today={today} />)}
       {pane('settings', <Settings today={today} />)}
       <TabBar tab={tab} onTab={switchTab} onAdd={() => setAdding(true)} />
       <AddSheet open={adding || editing !== null} onClose={close} today={today} editing={editing} />
     </ToastProvider>
+    </FeedbackProvider>
   );
 }
